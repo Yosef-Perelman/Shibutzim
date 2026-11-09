@@ -1,0 +1,110 @@
+# AGENTS.md
+
+Instructions for any AI coding agent working in this repository. This file is the **index**: it says what to read
+for which task. Load docs on demand and keep context small.
+
+## Reply canary
+
+**Start every chat reply to the user with `Yosef my king:`** – only in chat replies, never in code, docs, commits
+or files. If a reply ever lacks it, the user knows these instructions were lost (for example after a context reset)
+and will reload them.
+
+## Project in five lines
+
+- **Shibutzim** (Hebrew for "assignments"): shift scheduling and pay for small teams of hourly workers.
+- Managers define shifts, generate a weekly schedule with a constraint solver, edit and publish it; employees submit
+  availability, clock in and out, and see their hours and pay.
+- An AI assistant answers questions about shifts, pay and policy by calling tools over the same services as the UI,
+  with handbook retrieval and human-confirmed write proposals.
+- Server: Python 3.12, FastAPI, PostgreSQL + pgvector. Client: React + TypeScript + MobX + Mantine.
+- `pay/` and `scheduler/` are pure, exhaustively tested modules; authorization lives in services.
+
+## Start of every session
+
+1. Read [plans/ROADMAP.md](plans/ROADMAP.md) and find the plan that is `in progress`.
+2. Read that plan file, including its status, amendments and open questions.
+3. Load only the docs and rules the current task needs (map below).
+4. If the current plan is `draft`, do not write code: wait for the user's approval.
+
+## Plan-to-plan workflow
+
+No implementation before a written plan the user approved ([planning-rules.md](docs/rules/planning-rules.md)).
+
+> When a plan's validation passes: set its status to `done` (with a short "what changed vs. plan" note), update
+> `plans/ROADMAP.md`, then use `/new-plan` to draft the next plan from the roadmap and **stop and wait for the
+> user's approval** before writing any code.
+
+After a plan is closed the user may run `/clear`; `CLAUDE.md → AGENTS.md → ROADMAP.md → current plan` must be
+enough to continue exactly where work stopped. Project state lives in files, not in the chat.
+
+## Task → what to read
+
+| Task | Read |
+|---|---|
+| Understand the product or a business rule | [docs/product-definition.md](docs/product-definition.md) |
+| Any server code | [docs/architecture.md](docs/architecture.md) §3–§7, [coding-rules](docs/rules/coding-rules.md), [naming-rules](docs/rules/naming-rules.md) |
+| New or changed endpoint | + [error-handling-rules](docs/rules/error-handling-rules.md), [testing-rules](docs/rules/testing-rules.md) |
+| Models, migrations, queries, seed | + [database-rules](docs/rules/database-rules.md), architecture §5 |
+| Pay calculation or pay rules | product-definition §5.4 and §6.1, [testing-rules](docs/rules/testing-rules.md) (pay matrices) |
+| Scheduler / solver | product-definition §5.2 and §6.2, architecture §6.2, testing-rules (scheduler matrix) |
+| Assistant, tools, prompts, RAG, evals | product-definition §5.5 and §7, architecture §6.4–§6.6 |
+| Client code | architecture §9, [ui-rules](docs/rules/ui-rules.md), [naming-rules](docs/rules/naming-rules.md), [style-rules](docs/rules/style-rules.md) |
+| Domain words, names in code / DB / API | [docs/glossary.md](docs/glossary.md) |
+| Writing or closing a plan | [planning-rules](docs/rules/planning-rules.md), [plans/ROADMAP.md](plans/ROADMAP.md) |
+| Commits, branches | [git-rules](docs/rules/git-rules.md) |
+
+## Guardrails
+
+Enforced by tooling (`.claude/settings.json` and `.claude/hooks/`):
+
+- `.env` files are never read or edited (`.env.example` is allowed). Secrets come from environment variables.
+- Existing Alembic migrations are never edited; add a new migration instead.
+- After every `.py` edit, `ruff format`, `ruff check --fix` and `pytest -q -x` run automatically; failures are fed
+  back and must be fixed before moving on.
+- `git push --force` and `rm -rf` are denied.
+- The `qa` subagent can write only test and eval files.
+
+Enforced by you:
+
+- Don't add dependencies or features beyond the approved plan without asking.
+- Never push to the remote unless the user asks.
+- Explain decisions briefly as you go; when there is a real trade-off, show the options and recommend one.
+- Small, verifiable steps; tests first for pure logic.
+- Use macOS commands (BSD `sed -i ''`, `open`, Homebrew).
+- The local planning brief (`docs/archive/SHIBUTZIM_BRIEF.md`) is git-ignored and private. Never commit it, and
+  don't rely on it: everything needed is in `docs/` and `plans/`.
+
+Hooks guard the Edit and Write tools. A shell command can still bypass them, so don't use Bash to write files the
+hooks protect.
+
+## Never compromise on
+
+Pay tests · scheduler tests · authorization in services · the docs and plans trail.
+
+## Subagents and skills
+
+| Name | Kind | Use for |
+|---|---|---|
+| `backend` | subagent | server code only (`server/`) |
+| `frontend` | subagent | client code only (`client/`) |
+| `qa` | subagent | writing and running tests and evals; read-only on source |
+| `/new-plan` | skill | drafting the next plan from the roadmap |
+| `/add-pay-rule` | skill | *(after plan 001)* adding a pay rule with its edge-case matrix |
+| `/debug-schedule` | skill | *(after plan 002)* explaining why the solver couldn't fill a week |
+
+## Common commands
+
+Filled in as plans introduce them. Server commands run from `server/`.
+
+| Purpose | Command |
+|---|---|
+| Show what's next | `cat plans/ROADMAP.md` |
+| Start the database | *(plan 001)* `docker compose up -d db` |
+| Install server deps | *(plan 001)* `uv sync` |
+| Run migrations | *(plan 001)* `uv run alembic upgrade head` |
+| Seed demo data | *(plan 001)* `uv run python scripts/seed.py` |
+| Run the API | *(plan 001)* `uv run fastapi dev app/main.py` |
+| Tests | *(plan 001)* `uv run pytest -q` |
+| Lint and format | *(plan 001)* `uv run ruff check --fix . && uv run ruff format .` |
+| Client dev server | *(plan 003)* `cd client && npm run dev` |
+| Assistant evals | *(plan 004)* `uv run python -m evals.run` |
