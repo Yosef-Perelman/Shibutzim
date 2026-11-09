@@ -1,0 +1,34 @@
+# Private planning material – never published
+SHIBUTZIM_BRIEF.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node / client
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# Claude Code local-only settings
+.claude/settings.local.json
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

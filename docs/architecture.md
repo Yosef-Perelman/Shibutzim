@@ -85,7 +85,6 @@ shibutzim/
   docs/
     product-definition.md  architecture.md  glossary.md
     rules/                  planning, coding, database, error-handling, naming, style, testing, ui, git
-    archive/                historical documents
   plans/
     ROADMAP.md              the ordered list of plans with status
     NNN-YYYY-MM-DD-name.md  one file per plan
@@ -115,7 +114,7 @@ shibutzim/
       core/                 errors, security (jwt, bcrypt), time utilities
     alembic/                migrations (never edited after creation)
     tests/
-      unit/pay/  unit/scheduler/  api/
+      unit/pay/  unit/scheduler/  services/  api/
     evals/                  assistant eval cases + runner
     scripts/                seed.py, ingest_handbook.py
     handbook/               the employee handbook (markdown)
