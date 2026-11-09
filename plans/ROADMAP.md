@@ -7,7 +7,7 @@ Workflow details: [AGENTS.md](../AGENTS.md#plan-to-plan-workflow) and
 
 | Plan | Status | File | Content |
 |---|---|---|---|
-| **000** | in progress | [000-2026-11-10-ai-sdlc-setup.md](000-2026-11-10-ai-sdlc-setup.md) | AI SDLC setup: docs trio, AGENTS.md / CLAUDE.md, rules, this roadmap, archive the brief locally, `.claude/` settings, hooks, subagents, `new-plan` skill |
+| **000** | done | [000-2026-11-10-ai-sdlc-setup.md](000-2026-11-10-ai-sdlc-setup.md) | AI SDLC setup: docs trio, AGENTS.md / CLAUDE.md, rules, this roadmap, archive the brief locally, `.claude/` settings, hooks, subagents, `new-plan` skill |
 | **001** | todo | – | Skeleton (FastAPI, config, Docker Compose Postgres + pgvector), all DB models + first migration, seed, JWT auth + roles, **pay module (TDD)**, time-entry endpoints, `GET /api/pay`; then the `add-pay-rule` skill |
 | **002** | todo | – | Availability endpoints, **CSP scheduler** (TDD, with a trace/explain mode), generate / edit / publish schedule; then the `debug-schedule` skill |
 | **003** | todo | – | Client: login + role switch, my shifts, availability form, manager schedule board, pay page (React + TS + MobX) |
