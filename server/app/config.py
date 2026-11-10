@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     jwt_expires_hours: int = Field(default=8, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     timezone: str = "Asia/Jerusalem"
+    seed_password: str = "shibutzim-demo"  # shared by every seeded demo user (scripts/seed.py)
 
     @property
     def pay_rules(self) -> PayRules:
