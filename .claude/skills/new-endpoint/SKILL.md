@@ -13,7 +13,7 @@ names; if the endpoint is not in the plan, stop and ask for an amendment.
 
 | Layer | File |
 |---|---|
-| Router | `server/app/api/time_entries.py` |
+| Router | `server/app/api/time_entries.py` (and `api/pay.py` for results that need mapping) |
 | Schemas | `server/app/schemas/time_entry.py` |
 | Service | `server/app/services/time_entry_service.py` |
 | Repository | `server/app/repositories/time_entry_repository.py` |
@@ -71,12 +71,16 @@ Commit: `test: <what the endpoint must do>`.
    `app.deps` (`CurrentUser`, `SessionDep`, `NowDep`), schemas and services - never models, repositories or
    SQLAlchemy. Call **one** service function, return `Out.model_validate(...)`. A query parameter named like a
    Python keyword (`from`) uses `Query(alias="from")`. Declare fixed paths (`/clock-in`) before `/{id}`.
+   When the service returns a plain result (a dataclass such as `UserPay`) instead of an ORM row, map it to the
+   response schema in the router module (see `api/pay.py`). Schemas stay plain data and never import services or
+   models - imports only flow downward.
 5. **Register** the router in `create_app()` in `server/app/main.py`.
 
 ## 4. Check, document, commit
 
 - `cd server && uv run ruff format . && uv run ruff check . && uv run pytest -q` - all green.
 - Layering: `grep -nE "app\.models|app\.repositories|sqlalchemy" server/app/api/*.py` prints nothing.
+- Schemas: `grep -nE "app\.(services|models|repositories)" server/app/schemas/*.py` prints nothing.
 - Pure-module rule still holds: `grep -rE "sqlalchemy|fastapi|app\.(db|repositories|services)" server/app/pay`.
 - Update [error-handling-rules](../../../docs/rules/error-handling-rules.md) (new codes) and
   [glossary.md](../../../docs/glossary.md) (new terms, endpoints) in the same commit.
@@ -90,4 +94,4 @@ Commit: `test: <what the endpoint must do>`.
 - [ ] one test per error code; one `422 validation_error` test
 - [ ] service checks authorization first; router has no logic; repository has no roles
 - [ ] new error codes in `ErrorCode` **and** error-handling-rules; new terms in the glossary
-- [ ] ruff and the whole suite pass; layering greps are clean
+- [ ] ruff and the whole suite pass; the layering greps (routers, schemas, pay) are clean

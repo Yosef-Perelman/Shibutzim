@@ -54,3 +54,9 @@ def list_for_user(
     if end is not None:
         query = query.where(TimeEntry.clock_in < end)
     return list(session.scalars(query.order_by(TimeEntry.clock_in, TimeEntry.id)))
+
+
+def list_in_range(session: Session, start: datetime, end: datetime) -> list[TimeEntry]:
+    """All users' entries whose clock_in is in [start, end): one query for team reports."""
+    query = select(TimeEntry).where(TimeEntry.clock_in >= start, TimeEntry.clock_in < end)
+    return list(session.scalars(query.order_by(TimeEntry.user_id, TimeEntry.clock_in)))

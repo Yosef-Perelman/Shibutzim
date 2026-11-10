@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.pay import PayRules
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -25,6 +27,11 @@ class Settings(BaseSettings):
     jwt_expires_hours: int = Field(default=8, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     timezone: str = "Asia/Jerusalem"
+
+    @property
+    def pay_rules(self) -> PayRules:
+        """The pay rules in force (architecture §5). v1 uses the product defaults."""
+        return PayRules.default()
 
     @property
     def tz(self) -> ZoneInfo:

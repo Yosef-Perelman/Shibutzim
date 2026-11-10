@@ -71,8 +71,13 @@ mapping code and one vocabulary for people and agents.
 | **Pay period** | calendar month; the default reporting range | `from`, `to` query parameters |
 | **Pay rules** | all configuration the pay calculation needs: tiers (and later premiums) | `PayRules` |
 | **Overtime tier** | a band of daily hours with a rate multiplier (1–8 h → 1.00, 9–10 h → 1.25, 11+ h → 1.50) | `OvertimeTier(from_hour, to_hour, multiplier)` |
-| **Pay calculation** | pure function from entries, rate and rules to a breakdown | `pay.calculate(entries, hourly_rate, rules)` |
+| **Pay calculation** | pure function from closed entries, rate, rules and zone to a breakdown | `pay.calculate(entries, hourly_rate, rules, tz)` |
 | **Pay breakdown** | the result: per work day the hours and amount per tier, plus totals | `PayBreakdown`, `DayBreakdown`, `TierLine` · `GET /api/pay` |
+| **Pay entry** | a closed time entry reduced to `clock_in` and `clock_out`; the input of the pay calculation | `pay.Entry` |
+| **Team pay** | every active user's pay for a range (plus deactivated users who worked in it); managers only | `GET /api/pay/team` · `TeamPayOut`, `TeamPayRow` |
+| **Open entries (in pay)** | entries without a clock-out in the range; excluded from pay and reported as a count | `open_entries` |
+| **Display hours** | hours in pay responses, rounded to two decimals for display only; `seconds` is the exact duration | `hours` next to `seconds` |
+| **Work-day range** | `from` and `to` query parameters: first and last work day, both inclusive; an entry belongs to the range if its work day does | `from`, `to` |
 
 ### Assistant
 
