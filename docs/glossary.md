@@ -32,6 +32,10 @@ mapping code and one vocabulary for people and agents.
 | **Manager** | user with role `manager`; runs the team | `Role.manager` |
 | **Employee** | user with role `employee`; works shifts | `Role.employee` |
 | **Current user** | the authenticated user a request or tool call runs as | `current_user` dependency / parameter |
+| **Login** | exchange email and password for an access token; every failure looks the same | `POST /api/auth/login` · `LoginRequest`, `TokenOut` |
+| **Access token** | JWT (HS256) with `sub` (user id) and `role`; valid 8 hours; sent as `Authorization: Bearer` | `create_access_token`, `TokenClaims` |
+| **Current user endpoint** | the authenticated user's own profile | `GET /api/auth/me` · `UserOut` |
+| **Demo user** | a user created by the seed; all share the password in `SEED_PASSWORD` | `scripts/seed.py` |
 | **Hourly rate** | an employee's base pay per hour | `hourly_rate` · `users.hourly_rate` (numeric) · `"hourly_rate"` (string) |
 
 ### Scheduling
@@ -65,14 +69,23 @@ mapping code and one vocabulary for people and agents.
 | **Time entry** | actual clock-in and clock-out of one employee | `TimeEntry` · `time_entries` · `/api/time-entries` |
 | **Clock in / clock out** | opening / closing a time entry | `clock_in`, `clock_out` (timestamptz; `clock_out` is null while open) |
 | **Open entry** | a time entry without clock-out; at most one per employee | `clock_out IS NULL` |
+| **Manual entry** | a closed time entry a manager records for an employee (`source = manual`, `created_by` = the manager) | `POST /api/time-entries` · `TimeEntryCreate` |
+| **Correction** | a manager's partial change to an entry's times or note; the merged interval is re-validated | `PATCH /api/time-entries/{id}` · `TimeEntryUpdate` |
+| **Maximum entry length** | an entry may not exceed 24 hours; a forgotten clock-out must be corrected by a manager | `MAX_ENTRY_DURATION` · `entry_too_long` |
+| **Time entry overlap** | two entries of one employee that intersect (half-open intervals; an open entry extends forever); rejected because it would double-count pay | `time_entry_overlap` |
 | **Time entry source** | how the entry was created: `clock` (employee) or `manual` (manager) | `TimeEntrySource` enum · `time_entries.source` |
 | **Split shift** | two or more time entries on the same work day | no entity; a pattern of entries |
 | **Work day** | the calendar day (in `Asia/Jerusalem`) on which a time entry **started**; the unit for overtime tiers | `work_day` (date) in pay code |
 | **Pay period** | calendar month; the default reporting range | `from`, `to` query parameters |
 | **Pay rules** | all configuration the pay calculation needs: tiers (and later premiums) | `PayRules` |
 | **Overtime tier** | a band of daily hours with a rate multiplier (1–8 h → 1.00, 9–10 h → 1.25, 11+ h → 1.50) | `OvertimeTier(from_hour, to_hour, multiplier)` |
-| **Pay calculation** | pure function from entries, rate and rules to a breakdown | `pay.calculate(entries, hourly_rate, rules)` |
+| **Pay calculation** | pure function from closed entries, rate, rules and zone to a breakdown | `pay.calculate(entries, hourly_rate, rules, tz)` |
 | **Pay breakdown** | the result: per work day the hours and amount per tier, plus totals | `PayBreakdown`, `DayBreakdown`, `TierLine` · `GET /api/pay` |
+| **Pay entry** | a closed time entry reduced to `clock_in` and `clock_out`; the input of the pay calculation | `pay.Entry` |
+| **Team pay** | every active user's pay for a range (plus deactivated users who worked in it); managers only | `GET /api/pay/team` · `TeamPayOut`, `TeamPayRow` |
+| **Open entries (in pay)** | entries without a clock-out in the range; excluded from pay and reported as a count | `open_entries` |
+| **Display hours** | hours in pay responses, rounded to two decimals for display only; `seconds` is the exact duration | `hours` next to `seconds` |
+| **Work-day range** | `from` and `to` query parameters: first and last work day, both inclusive; an entry belongs to the range if its work day does | `from`, `to` |
 
 ### Assistant
 

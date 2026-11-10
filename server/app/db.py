@@ -1,0 +1,17 @@
+"""Engine and session factory. Sync SQLAlchemy 2 (plan 001, open question 3)."""
+
+from collections.abc import Iterator
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.config import get_settings
+
+engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def get_session() -> Iterator[Session]:
+    """FastAPI dependency: one session per request, closed afterwards. Services commit."""
+    with SessionLocal() as session:
+        yield session

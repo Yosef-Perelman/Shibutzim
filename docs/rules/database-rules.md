@@ -28,7 +28,8 @@ PostgreSQL with pgvector, SQLAlchemy 2, Alembic. Table and column names come fro
 
 - Alembic only. Every schema change is a new migration generated with `--autogenerate` and then **read and
   corrected by hand**.
-- **Never edit a migration after it is created.** A mistake is fixed by a new migration. (Enforced by a hook.)
+- **Never edit a migration after it is committed.** Correct a freshly generated migration by hand before its first
+  commit; after that, a mistake is fixed by a new migration. (Enforced by a hook on git-tracked migrations.)
 - Every migration has a working `downgrade()`.
 - Migration file names: `NNNN_short_description.py` (set with `--rev-id`).
 - Extensions (`vector`) are created in a migration, not by hand.

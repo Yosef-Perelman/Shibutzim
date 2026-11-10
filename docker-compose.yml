@@ -1,0 +1,23 @@
+# Local development database: PostgreSQL 16 with pgvector.
+# Values come from .env (see .env.example); the defaults below match .env.example.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: shibutzim-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shibutzim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shibutzim}
+      POSTGRES_DB: ${POSTGRES_DB:-shibutzim}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - shibutzim-db-data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shibutzim} -d ${POSTGRES_DB:-shibutzim}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  shibutzim-db-data:

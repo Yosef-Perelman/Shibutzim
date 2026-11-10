@@ -9,7 +9,7 @@
 |---|---|---|
 | Server | Python 3.12, **FastAPI**, Pydantic v2 | typed request/response schemas; async-ready; first-class OpenAPI |
 | Database | **PostgreSQL + pgvector**, SQLAlchemy 2, Alembic | one database for app data **and** embeddings; no separate vector store to run or secure |
-| Local environment | Docker Compose (Postgres with pgvector) | the same database engine locally and in production |
+| Local environment | Docker Compose (Postgres with pgvector, host port 5433) | the same database engine locally and in production |
 | Client | React + Vite + **TypeScript**, **MobX**, Mantine | typed UI; MobX stores keep server state out of components; Mantine gives accessible components without custom CSS work |
 | Auth | email + password (bcrypt), JWT carrying the role; checked on the server | simple and sufficient; OAuth adds nothing for a single-organization demo |
 | AI | one `llm` interface (chat with tool calling + embeddings); provider: **Gemini** | the provider is swappable; the product logic never imports a vendor SDK directly |
@@ -111,7 +111,7 @@ shibutzim/
         prompts/            system prompt and tool descriptions as files
         llm/                interface + Gemini adapter
         logging.py          tool-call log writer
-      core/                 errors, security (jwt, bcrypt), time utilities
+      core/                 errors, enums, security (jwt, bcrypt), time utilities
     alembic/                migrations (never edited after creation)
     tests/
       unit/pay/  unit/scheduler/  services/  api/
@@ -140,7 +140,7 @@ All ids are integers (serial). All timestamps are `timestamptz` stored in UTC. M
 | `availabilities` | `id`, `shift_id`, `user_id`, `status` (`available` \| `preferred` \| `unavailable`) | unique (`shift_id`, `user_id`); a missing row means `unavailable` |
 | `schedules` | `id`, `week_start` (unique), `status` (`draft` \| `published`), `published_at` | one schedule per week |
 | `assignments` | `id`, `schedule_id`, `shift_id`, `user_id` | unique (`schedule_id`, `shift_id`, `user_id`) |
-| `time_entries` | `id`, `user_id`, `clock_in`, `clock_out` (nullable while open), `source` (`clock` \| `manual`), `created_by`, `note` | several per day = split shift; may cross midnight |
+| `time_entries` | `id`, `user_id`, `clock_in`, `clock_out` (nullable while open), `source` (`clock` \| `manual`), `created_by`, `note` | several per day = split shift; may cross midnight; a partial unique index allows one open entry per user |
 | `handbook_chunks` | `id`, `section_title`, `content`, `embedding` (`vector`), `position` | one row per handbook section |
 | `tool_call_logs` | `id`, `user_id`, `tool`, `args` (`jsonb`), `duration_ms`, `result_size`, `status`, `created_at` | audit trail for the assistant |
 

@@ -20,10 +20,10 @@ Every non-2xx API response has this body:
 | Exception | HTTP | Example codes |
 |---|---|---|
 | `ValidationFailed` | 422 | `validation_error`, `clock_out_before_clock_in`, `entry_too_long` |
-| `Unauthorized` | 401 | `invalid_credentials`, `token_expired` |
+| `Unauthorized` | 401 | `invalid_credentials`, `invalid_token`, `token_expired` |
 | `Forbidden` | 403 | `forbidden` |
-| `NotFound` | 404 | `user_not_found`, `shift_not_found` |
-| `Conflict` | 409 | `already_clocked_in`, `not_clocked_in`, `shift_overlap`, `min_rest_violation`, `schedule_published` |
+| `NotFound` | 404 | `user_not_found`, `time_entry_not_found`, `shift_not_found` |
+| `Conflict` | 409 | `already_clocked_in`, `not_clocked_in`, `time_entry_overlap`, `shift_overlap`, `min_rest_violation`, `schedule_published` |
 | any other exception | 500 | `internal_error` (logged with traceback, generic message) |
 
 - Pydantic request-validation errors are converted to the same shape with code `validation_error` and `details`.

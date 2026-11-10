@@ -35,3 +35,6 @@ dist/
 
 # UI reference screenshots of other sites – local only
 design/references/
+
+# Archived Claude Code conversations – local only
+conversations/
