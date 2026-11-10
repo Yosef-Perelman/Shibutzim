@@ -96,7 +96,7 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 | `qa` | subagent | writing and running tests and evals; read-only on source |
 | `/new-plan` | skill | drafting the next plan from the roadmap |
 | `/new-endpoint` | skill | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
-| `/add-pay-rule` | skill | *(end of plan 001)* adding a pay rule with its edge-case matrix |
+| `/add-pay-rule` | skill | adding a pay rule with its five-case matrix; `dry run` lists the work and stops |
 | `/debug-schedule` | skill | *(after plan 002)* explaining why the solver couldn't fill a week |
 
 ## Common commands

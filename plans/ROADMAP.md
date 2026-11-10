@@ -22,7 +22,7 @@ Plan 005 is part of the roadmap, not optional.
 |---|---|---|
 | `new-plan` | 000 | draft the next plan from this roadmap using the planning template, then stop for approval |
 | `new-endpoint` | 001, after the first endpoints | scaffold schema + repository + service (with authorization) + router + tests (401/403 matrix, error codes) following the code rules |
-| `add-pay-rule` | after 001 | add a pay rule (e.g. night or weekend premium) to `PayRules` with a fixed edge-case matrix (exactly at the boundary, crossing midnight, split shift, combined with overtime tiers, zero hours); update glossary and docs; run the pay tests; fail if any matrix case is missing |
+| `add-pay-rule` | 001, after validation | add a pay rule (e.g. night or weekend premium) to `PayRules` with a fixed edge-case matrix (exactly at the boundary, crossing midnight, split shift, combined with overtime tiers, zero hours); update glossary and docs; run the pay tests; fail if any matrix case is missing |
 | `debug-schedule` | after 002 | run the solver with trace mode on a week it couldn't fill (or filled badly) and report which hard constraint blocks which shift/slot, e.g. "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest", and suggest what the manager could relax. Requires `scheduler.solve(..., trace=True)` |
 
 ## Never compromise on
