@@ -32,6 +32,10 @@ mapping code and one vocabulary for people and agents.
 | **Manager** | user with role `manager`; runs the team | `Role.manager` |
 | **Employee** | user with role `employee`; works shifts | `Role.employee` |
 | **Current user** | the authenticated user a request or tool call runs as | `current_user` dependency / parameter |
+| **Login** | exchange email and password for an access token; every failure looks the same | `POST /api/auth/login` · `LoginRequest`, `TokenOut` |
+| **Access token** | JWT (HS256) with `sub` (user id) and `role`; valid 8 hours; sent as `Authorization: Bearer` | `create_access_token`, `TokenClaims` |
+| **Current user endpoint** | the authenticated user's own profile | `GET /api/auth/me` · `UserOut` |
+| **Demo user** | a user created by the seed; all share the password in `SEED_PASSWORD` | `scripts/seed.py` |
 | **Hourly rate** | an employee's base pay per hour | `hourly_rate` · `users.hourly_rate` (numeric) · `"hourly_rate"` (string) |
 
 ### Scheduling
@@ -65,6 +69,10 @@ mapping code and one vocabulary for people and agents.
 | **Time entry** | actual clock-in and clock-out of one employee | `TimeEntry` · `time_entries` · `/api/time-entries` |
 | **Clock in / clock out** | opening / closing a time entry | `clock_in`, `clock_out` (timestamptz; `clock_out` is null while open) |
 | **Open entry** | a time entry without clock-out; at most one per employee | `clock_out IS NULL` |
+| **Manual entry** | a closed time entry a manager records for an employee (`source = manual`, `created_by` = the manager) | `POST /api/time-entries` · `TimeEntryCreate` |
+| **Correction** | a manager's partial change to an entry's times or note; the merged interval is re-validated | `PATCH /api/time-entries/{id}` · `TimeEntryUpdate` |
+| **Maximum entry length** | an entry may not exceed 24 hours; a forgotten clock-out must be corrected by a manager | `MAX_ENTRY_DURATION` · `entry_too_long` |
+| **Time entry overlap** | two entries of one employee that intersect (half-open intervals; an open entry extends forever); rejected because it would double-count pay | `time_entry_overlap` |
 | **Time entry source** | how the entry was created: `clock` (employee) or `manual` (manager) | `TimeEntrySource` enum · `time_entries.source` |
 | **Split shift** | two or more time entries on the same work day | no entity; a pattern of entries |
 | **Work day** | the calendar day (in `Asia/Jerusalem`) on which a time entry **started**; the unit for overtime tiers | `work_day` (date) in pay code |

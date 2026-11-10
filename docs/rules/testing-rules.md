@@ -46,6 +46,19 @@ possible.
 - Use `pytest.mark.parametrize` for matrices; keep each case readable.
 - Fixtures in `conftest.py`; factory helpers for users, shifts and time entries instead of copy-pasted setup.
 
+## Fixtures (`server/tests/conftest.py`, `server/tests/factories.py`)
+
+| Fixture / helper | Gives you |
+|---|---|
+| `session` | a SQLAlchemy session on `shibutzim_test`; everything is rolled back after the test, and services may `commit()` |
+| `client` | an unauthenticated API client (clock frozen at `NOW`, session shared with the test) |
+| `manager_client`, `employee_client`, `other_employee_client` | API clients authenticated as that user |
+| `manager`, `employee`, `other_employee` | persisted users (`Mia Manager`, `Eli Employee`, `Dana Other`) |
+| `make_user`, `make_time_entry`, `auth_headers`, `NOW` | factories and the frozen "current time" |
+
+The suite fails fast with "Database not reachable – run `docker compose up -d db`" when Postgres is down, and refuses
+to run against any database whose name does not end in `_test`.
+
 ## Commands
 
 ```bash

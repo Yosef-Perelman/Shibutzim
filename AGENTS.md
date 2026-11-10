@@ -44,7 +44,7 @@ enough to continue exactly where work stopped. Project state lives in files, not
 |---|---|
 | Understand the product or a business rule | [docs/product-definition.md](docs/product-definition.md) |
 | Any server code | [docs/architecture.md](docs/architecture.md) §3–§7, [coding-rules](docs/rules/coding-rules.md), [naming-rules](docs/rules/naming-rules.md) |
-| New or changed endpoint | + [error-handling-rules](docs/rules/error-handling-rules.md), [testing-rules](docs/rules/testing-rules.md) |
+| New or changed endpoint | + [error-handling-rules](docs/rules/error-handling-rules.md), [testing-rules](docs/rules/testing-rules.md); follow `/new-endpoint` |
 | Models, migrations, queries, seed | + [database-rules](docs/rules/database-rules.md), architecture §5 |
 | Pay calculation or pay rules | product-definition §5.4 and §6.1, [testing-rules](docs/rules/testing-rules.md) (pay matrices) |
 | Scheduler / solver | product-definition §5.2 and §6.2, architecture §6.2, testing-rules (scheduler matrix) |
@@ -64,6 +64,8 @@ Enforced by tooling (`.claude/settings.json` and `.claude/hooks/`):
 - After every `.py` edit, `ruff format`, `ruff check --fix` and `pytest -q -x` run automatically; failures are fed
   back and must be fixed before moving on.
 - `git push --force` and `rm -rf` are denied.
+- Every Claude Code session is archived to `conversations/` (raw JSONL + readable Markdown, git-ignored) when it
+  ends or is compacted; `python3 .claude/hooks/archive_conversation.py --backfill` archives existing ones.
 - The `qa` subagent can write only test and eval files.
 
 Enforced by you:
@@ -93,22 +95,27 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 | `frontend` | subagent | client code only (`client/`) |
 | `qa` | subagent | writing and running tests and evals; read-only on source |
 | `/new-plan` | skill | drafting the next plan from the roadmap |
-| `/add-pay-rule` | skill | *(after plan 001)* adding a pay rule with its edge-case matrix |
+| `/new-endpoint` | skill | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
+| `/add-pay-rule` | skill | *(end of plan 001)* adding a pay rule with its edge-case matrix |
 | `/debug-schedule` | skill | *(after plan 002)* explaining why the solver couldn't fill a week |
 
 ## Common commands
 
-Filled in as plans introduce them. Server commands run from `server/`.
+Server commands run from `server/`; `docker compose` runs from the repository root. Copy `.env.example` to
+`.env` only if you need to change a default (the database listens on host port **5433**).
 
 | Purpose | Command |
 |---|---|
 | Show what's next | `cat plans/ROADMAP.md` |
-| Start the database | *(plan 001)* `docker compose up -d db` |
-| Install server deps | *(plan 001)* `uv sync` |
-| Run migrations | *(plan 001)* `uv run alembic upgrade head` |
-| Seed demo data | *(plan 001)* `uv run python scripts/seed.py` |
-| Run the API | *(plan 001)* `uv run fastapi dev app/main.py` |
-| Tests | *(plan 001)* `uv run pytest -q` |
-| Lint and format | *(plan 001)* `uv run ruff check --fix . && uv run ruff format .` |
+| Start the database | `docker compose up -d db` (repo root) |
+| Install server deps | `uv sync` |
+| Run migrations | `uv run alembic upgrade head` |
+| Check models match migrations | `uv run alembic check` |
+| New migration | `uv run alembic revision --autogenerate --rev-id NNNN -m "short description"` |
+| Seed demo data (idempotent) | `uv run python scripts/seed.py` |
+| Run the API | `uv run fastapi dev app/main.py` (docs at `/docs`) |
+| Tests | `uv run pytest -q` |
+| Pay matrix, by name | `uv run pytest -q tests/unit/pay -v` |
+| Lint and format | `uv run ruff check --fix . && uv run ruff format .` |
 | Client dev server | *(plan 003)* `cd client && npm run dev` |
 | Assistant evals | *(plan 004)* `uv run python -m evals.run` |
