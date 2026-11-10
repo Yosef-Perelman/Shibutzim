@@ -59,7 +59,8 @@ enough to continue exactly where work stopped. Project state lives in files, not
 Enforced by tooling (`.claude/settings.json` and `.claude/hooks/`):
 
 - `.env` files are never read or edited (`.env.example` is allowed). Secrets come from environment variables.
-- Existing Alembic migrations are never edited; add a new migration instead.
+- Committed Alembic migrations are never edited; add a new migration instead. A freshly generated, uncommitted
+  migration may still be corrected by hand.
 - After every `.py` edit, `ruff format`, `ruff check --fix` and `pytest -q -x` run automatically; failures are fed
   back and must be fixed before moving on.
 - `git push --force` and `rm -rf` are denied.
