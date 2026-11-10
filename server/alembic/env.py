@@ -10,7 +10,8 @@ from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep the application's loggers alive when Alembic runs inside the test process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # The URL comes from settings, so `alembic.ini` never holds credentials. Tests override it.
 config.set_main_option(
