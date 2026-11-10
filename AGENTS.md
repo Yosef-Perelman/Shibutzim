@@ -115,7 +115,7 @@ Server commands run from `server/`; `docker compose` runs from the repository ro
 | Seed demo data (idempotent) | `uv run python scripts/seed.py` |
 | Run the API | `uv run fastapi dev app/main.py` (docs at `/docs`) |
 | Tests | `uv run pytest -q` |
-| Pay matrix, by name | `uv run pytest -q tests/unit/pay -v` |
+| Pay matrix, by name | `uv run pytest tests/unit/pay -v` (without `-q`, which cancels `-v`) |
 | Lint and format | `uv run ruff check --fix . && uv run ruff format .` |
 | Client dev server | *(plan 003)* `cd client && npm run dev` |
 | Assistant evals | *(plan 004)* `uv run python -m evals.run` |
