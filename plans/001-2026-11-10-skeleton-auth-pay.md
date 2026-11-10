@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | done |
 | **Date** | 2026-11-10 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §3–§6, [architecture.md](../docs/architecture.md) §3–§8, [glossary.md](../docs/glossary.md), [coding](../docs/rules/coding-rules.md), [database](../docs/rules/database-rules.md), [error-handling](../docs/rules/error-handling-rules.md), [testing](../docs/rules/testing-rules.md) rules |
 | **Roadmap** | plan 001 of 005 |
@@ -231,4 +231,54 @@ Each step is one commit on `plan/001-skeleton-auth-pay`. `test:` commits come be
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+**Outcome.** Every goal item shipped: 22 commits on `plan/001-skeleton-auth-pay` (this one included), 276 tests passing (25 in the pay
+matrix), all validation items run (results below). All sixteen open questions were approved as suggested.
+
+### Deviations
+
+| What | Why | Effect |
+|---|---|---|
+| Docker Desktop was **already installed** (assumption said it was not). | Verified at step 1. | Nothing to install. |
+| The database listens on host port **5433**, not 5432. | A Homebrew `postgresql@16` service already owns `localhost:5432` on this Mac, so migrations hit the wrong server. | `docker-compose.yml`, `.env.example` and the `config.py` defaults use 5433; documented in AGENTS.md. |
+| Step 4 (migration guard) was committed **after** steps 5-7 and just before step 8. | Claude Code's auto-mode classifier refused to let the agent rewrite its own guard hook, so Yosef copied the corrected file in by hand. | Same content as planned; step 8 waited for it. |
+| The conversation **backfill** was run by Yosef, not the agent. | The classifier blocked copying transcripts out of `~/.claude/`. | `conversations/` holds both existing sessions. |
+| The "authenticated client per role" fixtures arrived in step 10, not step 9. | They need token creation, which is step 10's code. | Step 9 shipped the session, rollback and factories; step 10's `test:` commit added `manager_client` and `employee_client`. |
+| `main.py` uses a `create_app()` factory. | Lets error-handler tests build an app with extra routes. | No behavior change. |
+| `Settings.pay_rules` returns `PayRules.default()`; tiers are **not** read from the environment. | No UI or need to edit tiers in v1; one place to change later. | Architecture §5 ("configuration") holds in spirit. |
+| The matrix checker collects tests **in-process** with a pytest plugin instead of parsing `--collect-only -q` text. | The text output does not show markers, so the rule name could not be read from it. | Same contract as open question 13; verified on a real, an absent and a four-of-five rule. |
+| The plan's validation command `pytest -q tests/unit/pay -v` prints dots. | `-q` cancels `-v`. | Use `pytest tests/unit/pay -v`; AGENTS.md was corrected. |
+
+### Decisions made while building (not in the plan)
+
+- **Time entries:** half-open intervals (back-to-back entries are fine; an open entry extends forever); a forgotten
+  clock-out older than 24 hours cannot be closed by the employee (`entry_too_long`, a manager corrects it); a partial
+  unique index allows one open entry per user and a lost race still returns `already_clocked_in`.
+- **Authorization before existence:** an employee gets 403 for any id, so ids cannot be probed.
+- **Auth:** wrong password, unknown email and inactive user return the same `invalid_credentials`, an unknown email
+  still pays one bcrypt check, a missing token is `invalid_token`, and the token's role is cross-checked with the
+  database row on every request. Passwords over 72 bytes are rejected explicitly.
+- **Pay endpoints:** `from` and `to` are required; JSON carries exact `seconds` plus `hours` rounded to two decimals
+  for display; team pay lists active users of any role plus deactivated users who worked in the range; open
+  entries are excluded and counted.
+- **Skills:** building the pay endpoints through `/new-endpoint` found two gaps, both fixed in that step: mapping a
+  non-ORM service result belongs in the router (schemas never import services), and a schemas layering grep.
+
+### Validation results
+
+All passed: compose healthy; `upgrade` / `downgrade base` / `upgrade` on an empty scratch database with zero drift;
+ruff clean; 276 tests; the 25 pay cases by name; a 401 test for all 9 protected operations and a 403 test for all 6
+role or ownership rules; seed run twice on the dev database with identical counts (6 / 16 / 32 / 60 / 128); the
+curl smoke test (server pay for a seeded 10.5 h overtime day, a split-shift day and a 12 h day equals an independent
+hand calculation to the cent); the pay module has no forbidden imports; the migration guard allows an uncommitted and
+blocks a committed migration; the `/new-endpoint` checklist holds for the pay endpoints; the `add-pay-rule` dry run
+(its worked night-premium example, numbers re-checked) lists the five cases and the files and changes nothing.
+
+### Deferred
+
+- **Live `/clear` check of the archive hook.** Hooks load at session start, so the first real `SessionEnd` /
+  `PreCompact` after this plan can only be observed in the next session. Verified instead: a simulated `SessionEnd`
+  event produced a byte-identical `.jsonl` and a readable `.md`, errors exit 0, and a finished session's archive is
+  byte-identical to Claude Code's transcript. Confirm once: after the next `/clear`, `ls conversations/` should list
+  the ended session.
+- Not built, by design: handbook seed (plan 004), schedule and assignment seed (plan 002), refresh tokens, premiums,
+  weekly overtime.
