@@ -10,11 +10,14 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.enums import Role, TimeEntrySource
+from app.core.security import create_access_token, hash_password
 from app.models import TimeEntry, User
 
 _sequence = itertools.count(1)
 
 DEFAULT_PASSWORD = "correct-horse-battery"
+TEST_BCRYPT_ROUNDS = 4  # the minimum; production uses the default cost
+NOW = datetime(2026, 3, 9, 12, 0, tzinfo=UTC)  # the frozen "current time" of API tests
 BASE_CLOCK_IN = datetime(2026, 3, 9, 8, 0, tzinfo=UTC)
 
 
@@ -26,12 +29,12 @@ def make_user(
     name: str | None = None,
     hourly_rate: Decimal = Decimal("50.00"),
     is_active: bool = True,
-    password_hash: str = "not-a-real-hash",
+    password: str = DEFAULT_PASSWORD,
 ) -> User:
     number = next(_sequence)
     user = User(
         email=email or f"user{number}@example.com",
-        password_hash=password_hash,
+        password_hash=hash_password(password, rounds=TEST_BCRYPT_ROUNDS),
         name=name or f"User {number}",
         role=role,
         hourly_rate=hourly_rate,
@@ -64,3 +67,9 @@ def make_time_entry(
     session.add(entry)
     session.flush()
     return entry
+
+
+def auth_headers(user: User, *, now: datetime = NOW) -> dict[str, str]:
+    """Authorization header with a valid token for `user`, issued at `now`."""
+    token = create_access_token(user.id, user.role, now=now)
+    return {"Authorization": f"Bearer {token}"}

@@ -20,9 +20,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.core.enums import Role
 from app.db import get_session
+from app.deps import get_now
 from app.main import app
 from app.models import User
-from tests.factories import make_user
+from tests.factories import NOW, auth_headers, make_user
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 DB_UNREACHABLE = "Database not reachable – run `docker compose up -d db` (then retry): {error}"
@@ -87,17 +88,44 @@ def session(engine: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def client(session: Session) -> Iterator[TestClient]:
-    """An unauthenticated API client whose requests use the per-test session."""
+def api(session: Session) -> Iterator[None]:
+    """Route the app to the per-test session and freeze its clock at NOW."""
 
     def override_get_session() -> Iterator[Session]:
         yield session
 
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_now] = lambda: NOW
     try:
-        yield TestClient(app, raise_server_exceptions=False)
+        yield
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.clear()
+
+
+def api_client(user: User | None = None) -> TestClient:
+    headers = auth_headers(user) if user else None
+    return TestClient(app, raise_server_exceptions=False, headers=headers)
+
+
+@pytest.fixture
+def client(api: None) -> TestClient:
+    """An unauthenticated API client."""
+    return api_client()
+
+
+@pytest.fixture
+def manager_client(api: None, manager: User) -> TestClient:
+    return api_client(manager)
+
+
+@pytest.fixture
+def employee_client(api: None, employee: User) -> TestClient:
+    return api_client(employee)
+
+
+@pytest.fixture
+def other_employee_client(api: None, other_employee: User) -> TestClient:
+    return api_client(other_employee)
 
 
 @pytest.fixture
