@@ -16,9 +16,9 @@ class Settings(BaseSettings):
         env_file=REPO_ROOT / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    database_url: str = "postgresql+psycopg://shibutzim:shibutzim@localhost:5432/shibutzim"
+    database_url: str = "postgresql+psycopg://shibutzim:shibutzim@localhost:5433/shibutzim"
     test_database_url: str = (
-        "postgresql+psycopg://shibutzim:shibutzim@localhost:5432/shibutzim_test"
+        "postgresql+psycopg://shibutzim:shibutzim@localhost:5433/shibutzim_test"
     )
     jwt_secret: str = "change-me-to-a-long-random-string"
     jwt_expires_hours: int = Field(default=8, gt=0)
