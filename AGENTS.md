@@ -31,8 +31,9 @@ and will reload them.
 No implementation before a written plan the user approved ([planning-rules.md](docs/rules/planning-rules.md)).
 
 > When a plan's validation passes: set its status to `done` (with a short "what changed vs. plan" note), update
-> `plans/ROADMAP.md`, then use `/new-plan` to draft the next plan from the roadmap and **stop and wait for the
-> user's approval** before writing any code.
+> `plans/ROADMAP.md`, commit on the plan branch, **merge the branch into `main` locally with a merge commit**
+> (`git switch main && git merge --no-ff plan/NNN-short-name`), then use `/new-plan` to draft the next plan from
+> the roadmap and **stop and wait for the user's approval** before writing any code.
 
 After a plan is closed the user may run `/clear`; `CLAUDE.md → AGENTS.md → ROADMAP.md → current plan` must be
 enough to continue exactly where work stopped. Project state lives in files, not in the chat.
@@ -73,6 +74,8 @@ Enforced by you:
 - Use macOS commands (BSD `sed -i ''`, `open`, Homebrew).
 - The local planning brief (`docs/archive/SHIBUTZIM_BRIEF.md`) is git-ignored and private. Never commit it, and
   don't rely on it: everything needed is in `docs/` and `plans/`.
+- UI reference screenshots in `design/references/` are git-ignored and private (other sites' designs). Read them
+  when building the design system in plan 003; commit only what is derived from them.
 
 Hooks guard the Edit and Write tools. A shell command can still bypass them, so don't use Bash to write files the
 hooks protect.

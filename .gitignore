@@ -32,3 +32,6 @@ dist/
 .vscode/*
 !.vscode/extensions.json
 *.swp
+
+# UI reference screenshots of other sites – local only
+design/references/

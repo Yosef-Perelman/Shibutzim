@@ -49,8 +49,9 @@ gravity: it is where scope, assumptions and risks are decided.
 
 1. Run every validation item and record failures honestly.
 2. Fill **What changed vs. plan**: deviations, why, and anything deferred.
-3. Set status `done`, update `plans/ROADMAP.md`, commit (`plan: close plan NNN`).
-4. Draft the next plan with `/new-plan` and **stop for approval**.
+3. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
+4. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).
+5. Draft the next plan with `/new-plan` and **stop for approval**.
 
 ## Template
 
