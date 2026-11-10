@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +25,11 @@ class Settings(BaseSettings):
     jwt_expires_hours: int = Field(default=8, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     timezone: str = "Asia/Jerusalem"
+
+    @property
+    def tz(self) -> ZoneInfo:
+        """The zone for work-day and week boundaries; storage is always UTC."""
+        return ZoneInfo(self.timezone)
 
 
 @lru_cache
