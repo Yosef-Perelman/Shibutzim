@@ -27,7 +27,9 @@ from evals.cases import CASES
 from evals.runner import CaseResult, run_cases
 from evals.types import EvalCase
 
-DEFAULT_INTERVAL_SECONDS = 13.0  # under 5 calls a minute: the free tier allows 5 per minute per model
+DEFAULT_INTERVAL_SECONDS = (
+    13.0  # under 5 calls a minute: the free tier allows 5 per minute per model
+)
 DEFAULT_MAX_CALLS = 80
 
 
