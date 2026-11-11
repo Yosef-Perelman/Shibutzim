@@ -18,7 +18,12 @@
       "Bash(git branch *)",
       "Bash(git switch *)",
       "Bash(git mv *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(npx prettier *)",
+      "Bash(npx eslint *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -63,6 +68,11 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_py.py\"",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_ts.py\"",
             "timeout": 120
           }
         ]
