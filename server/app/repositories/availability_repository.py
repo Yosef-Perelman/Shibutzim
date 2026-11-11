@@ -30,3 +30,9 @@ def get_for_user(
         Availability.user_id == user_id, Availability.shift_id.in_(shift_ids)
     )
     return {answer.shift_id: answer for answer in session.scalars(query)}
+
+
+def list_for_shifts(session: Session, shift_ids: Collection[int]) -> list[Availability]:
+    """Every answer, from anyone, for the given shifts."""
+    query = select(Availability).where(Availability.shift_id.in_(shift_ids))
+    return list(session.scalars(query.order_by(Availability.shift_id, Availability.user_id)))
