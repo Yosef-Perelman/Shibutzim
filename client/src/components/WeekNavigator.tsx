@@ -1,14 +1,11 @@
-import { ActionIcon, Button, Group, Text } from '@mantine/core';
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-
 import { currentWeekStart, formatWeekRange } from '../lib/time';
+import { PeriodNavigator } from './PeriodNavigator';
 
 export interface WeekNavigatorProps {
   weekStart: string;
   onPrevious: () => void;
   onNext: () => void;
   onToday?: () => void;
-  /** Stops navigation, e.g. while a form has unsaved changes. */
   disabled?: boolean;
 }
 
@@ -22,41 +19,15 @@ export function WeekNavigator({
 }: WeekNavigatorProps) {
   const isThisWeek = weekStart === currentWeekStart();
   return (
-    <Group justify="space-between" wrap="nowrap" gap="xs">
-      <ActionIcon
-        variant="subtle"
-        size={44}
-        radius="xl"
-        aria-label="Previous week"
-        onClick={onPrevious}
-      >
-        <IconChevronLeft size={22} />
-      </ActionIcon>
-      <Group gap="sm" justify="center" wrap="wrap">
-        <Text fw={500} size="lg" className="tabular" aria-live="polite">
-          {formatWeekRange(weekStart)}
-        </Text>
-        {!isThisWeek && onToday ? (
-          <Button
-            variant="subtle"
-            styles={{ root: { height: 36 } }}
-            disabled={disabled}
-            onClick={onToday}
-          >
-            This week
-          </Button>
-        ) : null}
-      </Group>
-      <ActionIcon
-        variant="subtle"
-        size={44}
-        radius="xl"
-        aria-label="Next week"
-        disabled={disabled}
-        onClick={onNext}
-      >
-        <IconChevronRight size={22} />
-      </ActionIcon>
-    </Group>
+    <PeriodNavigator
+      label={formatWeekRange(weekStart)}
+      previousLabel="Previous week"
+      nextLabel="Next week"
+      onPrevious={onPrevious}
+      onNext={onNext}
+      resetLabel={isThisWeek ? undefined : 'This week'}
+      onReset={onToday}
+      disabled={disabled}
+    />
   );
 }

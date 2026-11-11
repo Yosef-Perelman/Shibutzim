@@ -2,6 +2,7 @@ import { ApiClient } from '../api/apiClient';
 import { createApi, type Api } from '../api';
 import { AuthStore } from './AuthStore';
 import { AvailabilityStore } from './AvailabilityStore';
+import { PayStore } from './PayStore';
 import { ScheduleStore } from './ScheduleStore';
 import { createLocalTokenStorage, type TokenStorage } from './tokenStorage';
 
@@ -28,6 +29,7 @@ export class RootStore {
   readonly auth: AuthStore;
   readonly schedule: ScheduleStore;
   readonly availability: AvailabilityStore;
+  readonly pay: PayStore;
 
   constructor(options: RootStoreOptions = {}) {
     this.api =
@@ -48,5 +50,6 @@ export class RootStore {
       currentUserId: () => this.auth.user?.id ?? null,
     });
     this.availability = new AvailabilityStore({ api: this.api });
+    this.pay = new PayStore({ api: this.api });
   }
 }

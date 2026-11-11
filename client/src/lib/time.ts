@@ -55,3 +55,23 @@ export function formatWeekRange(weekStart: string): string {
   if (start.month() === end.month()) return `${start.format('D')}–${end.format('D MMM')}`;
   return `${start.format('D MMM')} – ${end.format('D MMM')}`;
 }
+
+/** The first day (`YYYY-MM-01`) of the month containing `now`, by the Jerusalem date. */
+export function currentMonthStart(now: Date = new Date()): string {
+  return `${localDate(now.toISOString()).slice(0, 7)}-01`;
+}
+
+/** First and last day of a month, both inclusive: the work-day range of a pay period. */
+export function monthRange(monthStart: string): { from: string; to: string } {
+  const start = dayjs.utc(monthStart);
+  return { from: start.format(DATE_FORMAT), to: start.endOf('month').format(DATE_FORMAT) };
+}
+
+export function shiftMonth(monthStart: string, months: number): string {
+  return dayjs.utc(monthStart).add(months, 'month').format('YYYY-MM-01');
+}
+
+/** `November 2026`. */
+export function formatMonth(monthStart: string): string {
+  return dayjs.utc(monthStart).format('MMMM YYYY');
+}
