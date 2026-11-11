@@ -75,3 +75,13 @@ export function shiftMonth(monthStart: string, months: number): string {
 export function formatMonth(monthStart: string): string {
   return dayjs.utc(monthStart).format('MMMM YYYY');
 }
+
+/** Today's calendar date (`YYYY-MM-DD`) in Jerusalem. */
+export function localToday(now: Date = new Date()): string {
+  return localDate(now.toISOString());
+}
+
+/** Plain calendar arithmetic on a date. */
+export function addDays(date: string, days: number): string {
+  return dayjs.utc(date).add(days, 'day').format(DATE_FORMAT);
+}

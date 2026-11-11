@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateViews';
 import { IconTile } from '../../components/IconTile';
 import { WeekNavigator } from '../../components/WeekNavigator';
+import { ClockCard } from './ClockCard';
 import { currentWeekStart, formatDay, formatTimeRange, localDate } from '../../lib/time';
 import type { ShiftEntry } from '../../stores/ScheduleStore';
 import { useAuthStore, useScheduleStore } from '../../stores/StoreContext';
@@ -117,6 +118,7 @@ export const MyShifts = observer(function MyShifts() {
   return (
     <Stack gap="lg">
       <Title order={1}>My shifts</Title>
+      <ClockCard />
       <WeekNavigator
         weekStart={store.weekStart}
         onPrevious={() => void store.goToWeek(-1)}

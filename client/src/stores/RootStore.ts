@@ -4,6 +4,7 @@ import { AuthStore } from './AuthStore';
 import { AvailabilityStore } from './AvailabilityStore';
 import { PayStore } from './PayStore';
 import { ScheduleStore } from './ScheduleStore';
+import { TimeStore } from './TimeStore';
 import { createLocalTokenStorage, type TokenStorage } from './tokenStorage';
 
 export interface RootStoreOptions {
@@ -30,6 +31,7 @@ export class RootStore {
   readonly schedule: ScheduleStore;
   readonly availability: AvailabilityStore;
   readonly pay: PayStore;
+  readonly time: TimeStore;
 
   constructor(options: RootStoreOptions = {}) {
     this.api =
@@ -51,5 +53,6 @@ export class RootStore {
     });
     this.availability = new AvailabilityStore({ api: this.api });
     this.pay = new PayStore({ api: this.api });
+    this.time = new TimeStore({ api: this.api });
   }
 }

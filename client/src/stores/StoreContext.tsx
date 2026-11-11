@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { AuthStore } from './AuthStore';
 import type { AvailabilityStore } from './AvailabilityStore';
 import type { PayStore } from './PayStore';
+import type { TimeStore } from './TimeStore';
 import type { ScheduleStore } from './ScheduleStore';
 import type { RootStore } from './RootStore';
 
@@ -37,4 +38,8 @@ export function useAvailabilityStore(): AvailabilityStore {
 
 export function usePayStore(): PayStore {
   return useRootStore().pay;
+}
+
+export function useTimeStore(): TimeStore {
+  return useRootStore().time;
 }

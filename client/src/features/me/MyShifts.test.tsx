@@ -39,9 +39,16 @@ const schedule: Schedule = {
   ],
 };
 
+function makeApi() {
+  const api = makeFakeApi();
+  // The clock card on this screen loads the recent time entries too.
+  api.timeEntries.list.mockResolvedValue([]);
+  return api;
+}
+
 describe('MyShifts', () => {
   it('lists own shifts first and the whole team below', async () => {
-    const api = makeFakeApi();
+    const api = makeApi();
     api.schedules.get.mockResolvedValue(schedule);
     await renderWithStores(<MyShifts />, { api });
     const own = await screen.findByRole('region', { name: 'Your shifts' });
@@ -54,14 +61,14 @@ describe('MyShifts', () => {
   });
 
   it('says so when the week has no published schedule', async () => {
-    const api = makeFakeApi();
+    const api = makeApi();
     api.schedules.get.mockRejectedValue(new ApiError(404, 'schedule_not_found', 'None.'));
     await renderWithStores(<MyShifts />, { api });
     expect(await screen.findByText('Schedule not published yet')).toBeInTheDocument();
   });
 
   it('shows the server message and retries', async () => {
-    const api = makeFakeApi();
+    const api = makeApi();
     api.schedules.get.mockRejectedValueOnce(
       new ApiError(500, 'internal_error', 'Something went wrong on our side.'),
     );
@@ -73,7 +80,7 @@ describe('MyShifts', () => {
   });
 
   it('loads the next week when the arrow is pressed', async () => {
-    const api = makeFakeApi();
+    const api = makeApi();
     api.schedules.get.mockResolvedValue(schedule);
     await renderWithStores(<MyShifts />, { api });
     await screen.findByRole('region', { name: 'Your shifts' });
