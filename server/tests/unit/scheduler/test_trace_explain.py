@@ -227,3 +227,19 @@ def test_explain_returns_one_sentence_per_unfilled_slot_in_order() -> None:
 
 def test_explain_of_a_fully_staffed_week_is_empty() -> None:
     assert explain(result_with(), [MONDAY_NIGHT], STAFF, TZ) == []
+
+
+def test_explain_names_a_constraint_once_even_when_two_shifts_cause_it() -> None:
+    unfilled = UnfilledSlot(
+        shift_id=2,
+        required=2,
+        assigned=1,
+        reasons=(
+            Exclusion(1, Constraint.min_rest, shift_id=1),
+            Exclusion(1, Constraint.min_rest, shift_id=3),
+        ),
+    )
+
+    sentences = explain(result_with(unfilled), [MONDAY_NIGHT, TUESDAY_MORNING], STAFF, TZ)
+
+    assert sentences == ["Tuesday 07:00 needs 2, only 1 available; Dana excluded by minimum rest"]
