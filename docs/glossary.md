@@ -35,6 +35,7 @@ mapping code and one vocabulary for people and agents.
 | **Login** | exchange email and password for an access token; every failure looks the same | `POST /api/auth/login` · `LoginRequest`, `TokenOut` |
 | **Access token** | JWT (HS256) with `sub` (user id) and `role`; valid 8 hours; sent as `Authorization: Bearer` | `create_access_token`, `TokenClaims` |
 | **Current user endpoint** | the authenticated user's own profile | `GET /api/auth/me` · `UserOut` |
+| **User list** | managers only: every user, filtered by `role` and `is_active`, ordered by name; feeds the employee picker of the schedule board | `GET /api/users` · `user_service.list_users` · `UserOut` |
 | **Demo user** | a user created by the seed; all share the password in `SEED_PASSWORD` | `scripts/seed.py` |
 | **Hourly rate** | an employee's base pay per hour | `hourly_rate` · `users.hourly_rate` (numeric) · `"hourly_rate"` (string) |
 
