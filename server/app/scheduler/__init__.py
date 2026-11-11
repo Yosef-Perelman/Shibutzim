@@ -1,6 +1,7 @@
 """Pure scheduling module: data in, schedule out. No database, HTTP or clock (coding-rules)."""
 
 from app.scheduler.rules import SchedulingRules
+from app.scheduler.solve import solve
 from app.scheduler.types import (
     Assignment,
     Availability,
@@ -28,4 +29,5 @@ __all__ = [
     "TraceEvent",
     "TraceKind",
     "UnfilledSlot",
+    "solve",
 ]
