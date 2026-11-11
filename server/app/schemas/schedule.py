@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.enums import ScheduleStatus
 from app.scheduler import Constraint
@@ -67,6 +67,19 @@ class ScheduleGenerateOut(BaseModel):
     score: ScoreOut
     complete: bool  # False when the search budget ran out before the search finished
     steps: int
+
+
+class DayOffIn(BaseModel):
+    """One person who must not work one day of the week (a local date)."""
+
+    user_id: int
+    day: date
+
+
+class ScheduleGenerateIn(BaseModel):
+    """Optional body of generate: days off the solver treats as a hard constraint."""
+
+    unavailable: list[DayOffIn] = Field(default_factory=list, max_length=50)
 
 
 class AssignmentCreate(BaseModel):

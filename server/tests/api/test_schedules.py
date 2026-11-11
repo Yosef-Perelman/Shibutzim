@@ -213,26 +213,34 @@ def test_generate_names_a_day_off_as_the_reason_for_an_empty_slot(
             "user_id": employee.id,
             "user_name": "Eli Employee",
             "constraint": "blocked",
-            "shift_id": shift.id,
+            "shift_id": None,
         }
     ]
     assert unfilled["sentence"].endswith("Eli Employee excluded by a requested day off")
 
 
 @pytest.mark.parametrize(
-    ("entry", "code"),
+    ("user", "day", "code"),
     [
-        ({"user_id": 987654, "day": MONDAY}, "user_not_assignable"),
-        ({"user_id": 1, "day": "2026-04-30"}, "validation_error"),
-        ({"user_id": 1, "day": "not-a-date"}, "validation_error"),
-        ({"day": MONDAY}, "validation_error"),
+        (987654, MONDAY, "user_not_assignable"),
+        ("employee", "2026-04-30", "validation_error"),
+        ("employee", "not-a-date", "validation_error"),
+        (None, MONDAY, "validation_error"),
     ],
     ids=["unknown_user", "day_outside_the_week", "malformed_day", "missing_user"],
 )
 def test_generate_rejects_a_bad_day_off_with_422(
-    manager_client: TestClient, session: Session, entry: dict, code: str
+    manager_client: TestClient,
+    session: Session,
+    employee: User,
+    user: int | str | None,
+    day: str,
+    code: str,
 ) -> None:
     monday_shift(session)
+    entry: dict = {"day": day}
+    if user is not None:
+        entry["user_id"] = employee.id if user == "employee" else user
 
     response = manager_client.post(f"{BASE}/generate", json={"unavailable": [entry]})
 
