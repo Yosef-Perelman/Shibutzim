@@ -150,3 +150,31 @@ describe('PayStore.goToMonth', () => {
     expect(store.monthStart).toBe('2026-12-01');
   });
 });
+
+describe('PayStore.closePay', () => {
+  it('forgets the drill-down so a month change no longer reloads it', async () => {
+    const { api, store } = setup();
+    api.pay.get.mockResolvedValue(makePay({ user_id: 3 }));
+    api.pay.team.mockResolvedValue(makeTeam());
+    await store.loadPay(3);
+    await store.loadTeam();
+    store.closePay();
+    expect(store.pay).toBeNull();
+    expect(store.payStatus).toBe('idle');
+    api.pay.get.mockClear();
+    await store.goToMonth(1);
+    expect(api.pay.get).not.toHaveBeenCalled();
+    expect(api.pay.team).toHaveBeenLastCalledWith({ from: '2026-12-01', to: '2026-12-31' });
+  });
+
+  it('ignores an answer that arrives after the drill-down was closed', async () => {
+    const { api, store } = setup();
+    let finish: (value: Pay) => void = () => undefined;
+    api.pay.get.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const pending = store.loadPay(3);
+    store.closePay();
+    finish(makePay({ user_id: 3 }));
+    await pending;
+    expect(store.pay).toBeNull();
+  });
+});
