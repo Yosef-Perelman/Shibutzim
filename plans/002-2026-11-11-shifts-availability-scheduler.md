@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | done |
 | **Date** | 2026-11-11 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §5.1, §5.2, §6.2, §6.3 · [architecture.md](../docs/architecture.md) §3, §5, §6.2, §11 · [glossary.md](../docs/glossary.md) §2 "Scheduling", §3 · rules: [coding](../docs/rules/coding-rules.md), [database](../docs/rules/database-rules.md), [error-handling](../docs/rules/error-handling-rules.md), [testing](../docs/rules/testing-rules.md), [git](../docs/rules/git-rules.md) · skills: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 002 of 005 |
@@ -261,4 +261,66 @@ Approved by Yosef on 2026-11-11 with every open question answered as suggested. 
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+**Outcome.** Every goal item shipped: 31 commits on `plan/002-shifts-availability-scheduler` (this one included),
+670 tests passing (149 in the scheduler unit suite), all validation items run (results below). All thirteen open
+questions were approved as suggested. No migration and no new dependency were needed.
+
+### Deviations
+
+| What | Why | Effect |
+|---|---|---|
+| The solver stops at the first assignment that reaches the optimistic coverage bound, then runs a hill-climbing polish; the plan's "no fairness debt" stop rule was dropped. | A proof of optimal fairness is not cheap. Branch and bound on coverage plus a polish that only ever improves a valid schedule is simpler and cannot break a hard constraint. | Documented in the solver docstring, glossary ("Solver") and architecture §11. Default budget stays 200 000 steps; the seeded week proves its optimum in 222 steps. |
+| The first dive always finishes even if the budget is tiny, so `solve` always returns a valid schedule; `steps` can then exceed `max_steps`. | A budget that could stop before any solution exists would return nothing. | `complete` says whether the search finished. |
+| `UnfilledSlot` is **per shift** (`required`, `assigned`, `missing`, `reasons`), not per position. | One entry per missing position repeated identical reasons. | Glossary updated; the API's `unfilled` items carry `shift_id`, `required`, `assigned`, `missing`, `reasons`, `sentence`. |
+| Dry run is `propose_schedule(..., rules=None, trace=False)`, a separate function, instead of `generate(..., dry_run)`. | No optional return type in the REST path; the same function serves `debug-schedule` and the future assistant tool. | `generate_schedule` calls the same solve helper. |
+| Assignment edits live in `assignment_service`; small shared helpers in `services/users.py` and `services/weeks.py`; `Shift` got a `template` relationship and a `name` property. | Keeps each service file focused; the shift list needs the template name. | No schema change (`alembic check` clean). |
+| The 401 / 403 tests for the assignment and publish routes arrived in steps 10 and 11, not step 9; the 403 matrix sends valid bodies. | The routes did not exist at step 9; a bodyless call reaches validation (422) before authorization. | Same coverage in the end. |
+| The seed's own shift insertion did not shrink onto a service helper; it only shares `shift_bounds`. | The seed counts created versus existing rows per shift. | Behavior unchanged. |
+| Validation 6 said 14 protected operations; there are 13. | Miscount in the plan. | All 13 have a 401 test; every manager-only one has a 403 test. |
+| Validation 12 ran on the **seeded** next week (26 positions, 21 filled) instead of raising a template's `required_staff`. | Shifts snapshot the template, so editing it does not change existing shifts; the seeded week is naturally unfillable. | Output reviewed by hand. |
+
+### Decisions made while building (not in the plan)
+
+- **Solver:** at most 500 positions per solve (the search recurses once per placement; above that `ValueError`,
+  returned as 422 `validation_error`); the trace is capped at 20 000 events (`trace_truncated`); a preference is
+  worth 120 minutes of hours spread; inputs are sorted by id and start time, so list order never changes a result.
+- **Availability:** a week is "past" when its Sunday is before this week's Sunday in `Asia/Jerusalem`; answers can
+  only be saved for active employees (`user_not_assignable`), which includes a manager answering for someone;
+  a PUT must carry at least one answer, each shift at most once, and nothing is saved if one shift is invalid.
+- **Authorization before existence:** an employee naming another user gets 403 even for an id that does not exist;
+  an employee reading a draft schedule gets `schedule_not_found`, so the draft's existence stays private.
+- **Edits:** overlap is reported before minimum rest when both apply; `propose_schedule` is allowed on a published
+  week (it saves nothing); a generate for a week with no active employees simply returns every slot unfilled.
+- **Explanations:** an employee who did not answer `available` is never blamed on another rule. Found by running
+  `debug-schedule` on the seeded week: the report said "Omer excluded by minimum rest" for someone who never
+  offered to work the shift. Fixed with failing tests first (commit `fix:` after its `test:`).
+
+### Validation results
+
+| # | Result |
+|---|---|
+| 1 | `pytest -q`: 670 passed (276 at the end of plan 001). |
+| 2 | `pytest tests/unit/scheduler -v`: all 149 pass; the ten matrix cases pass by name (no solution, tight solution, fairness, the five hard constraints in isolation, preferred honored) plus boundaries, DST, determinism, budget, input checks and 60 random instances equal to exhaustive search. |
+| 3 | No match for sqlalchemy, fastapi, app.db / repositories / services / models or `datetime.now` in `app/scheduler/`. |
+| 4 | `ruff check` and `ruff format --check` clean. Routers and schemas pass the layering greps. |
+| 5 | `alembic check`: no new upgrade operations; only migration `0001` exists. |
+| 6 | 13 of 13 protected operations return 401 without a token; all 9 manager-only operations (3 templates, generate shifts, generate, publish, add, replace, remove) return 403 for an employee; cross-user availability read and write return 403; an employee reading a draft gets 404. |
+| 7 | Seed twice on the dev database: first run created 60 availabilities, 1 schedule, 21 assignments; second run created 0 rows. A test proves the seeded schedule breaks no hard constraint with plain arithmetic. |
+| 8 | HTTP smoke test (real server, dev database, seeded manager): generate shifts created 0 (already there); generate schedule returned a 21-of-26 draft with five sentences; adding the next shift gave 409 `min_rest_violation`; an overlapping temporary shift gave 409 `shift_overlap`; adding someone against their availability gave 201 with `availability_ignored` and `shift_overstaffed`; publish gave `published`; a second publish gave 409 `schedule_published`; generate after publish gave 409. Smoke rows were deleted afterwards. |
+| 9 | Employee: 404 before any schedule and for a draft; 200 once published; `PUT /api/availabilities` after the schedule exists gave 409 `availability_locked`. |
+| 10 | Solver speed: the seed-shaped week, a dense 7-day 12-employee week and three harder weeks (63 positions) each solved in under 10 ms (222 to 481 steps). |
+| 11 | `explain()` returns exactly "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest" (unit test). |
+| 12 | `debug_schedule.py --week 2026-11-15` named every unfilled shift, who was excluded and by which shift, who did not answer, and the what-if numbers (no rest rule: 25 of 26); a non-Sunday and a week without shifts exit 1 with the domain message; nothing was written. The `/debug-schedule` skill itself could not be invoked in this session (see Deferred). |
+| 13 | History reads docs → plan → tests → code: each step is a `test:` commit followed by its `feat:`, with `docs:` and `chore:` where planned. Every `ErrorCode` value appears in the error-handling table (checked by script). |
+
+### Deferred
+
+- **Live `/debug-schedule` check.** Skills load at session start, so the new skill can only be invoked in the next
+  session. Verified instead: the script, its report tests, and the skill file against the template of
+  `add-pay-rule`. Confirm once: run `/debug-schedule 2026-11-15` after the next `/clear`.
+- **Concurrent availability saves.** Two simultaneous `PUT`s by the same person for the same new shift could hit the
+  unique constraint and return a 500; shift generation, schedule creation and assignment edits already map that
+  race to a domain error. Unlikely for one person's form; fix with the same savepoint pattern if it ever shows.
+- **Rest across the week boundary** (Saturday night to Sunday morning) is not checked; documented in the glossary.
+- **Assistant tool, extra constraints** ("Dana can't work Tuesday") and a cross-week "my assignments" endpoint
+  belong to plans 004 and 003 respectively.
