@@ -55,6 +55,24 @@ def test_appears_rejects_a_different_number_or_text(value: str, text: str):
     assert not appears(value, text)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "You earned ₪0.00 last month.",
+        "You earned 0 last month.",
+        "You earned nothing last month.",
+        "There was no pay last month.",
+        "You did not work last month, so zero.",
+    ],
+)
+def test_a_zero_value_may_be_said_in_words(text: str):
+    assert appears("0.00", text)
+
+
+def test_a_zero_value_is_not_found_in_an_answer_that_only_has_other_numbers():
+    assert not appears("0.00", "You earned ₪250.00 last month.")
+
+
 # --- resolve_path ---
 
 

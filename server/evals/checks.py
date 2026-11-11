@@ -11,6 +11,17 @@ from evals.types import EvalCase, Fact
 
 ToolResults = dict[str, list[dict[str, Any]]]  # tool name -> the results of its calls, in order
 NUMBER = re.compile(r"\d+(\.\d+)?")
+ZERO_WORDS = (
+    "zero",
+    "nothing",
+    "none",
+    "no pay",
+    "no hours",
+    "no earnings",
+    "no time entries",
+    "did not work",
+    "didn't work",
+)
 
 
 def check_case(case: EvalCase, reply: AgentReply, results: ToolResults) -> list[str]:
@@ -123,4 +134,7 @@ def appears(value: str, text: str) -> bool:
     number = value.rstrip("0").rstrip(".") if "." in value else value
     body = re.escape(number)
     tail = r"0*" if "." in number else r"(?:\.0+)?"
-    return re.search(rf"(?<![\d.]){body}{tail}(?!\d|\.\d)", haystack) is not None
+    if re.search(rf"(?<![\d.]){body}{tail}(?!\d|\.\d)", haystack):
+        return True
+    # Zero is also said in words: "you earned nothing", "no hours".
+    return float(value) == 0 and any(word in haystack for word in ZERO_WORDS)
