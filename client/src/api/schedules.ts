@@ -4,6 +4,7 @@ import type {
   AssignmentEditOut,
   AssignmentUpdate,
   Schedule,
+  ScheduleGenerateIn,
   ScheduleGenerateOut,
 } from './types/schedule';
 
@@ -11,8 +12,8 @@ export function createSchedulesApi(client: ApiClient) {
   const base = (week_start: string) => `/api/schedules/${week_start}`;
   return {
     get: (week_start: string) => client.get<Schedule>(base(week_start)),
-    generate: (week_start: string) =>
-      client.post<ScheduleGenerateOut>(`${base(week_start)}/generate`),
+    generate: (week_start: string, body?: ScheduleGenerateIn) =>
+      client.post<ScheduleGenerateOut>(`${base(week_start)}/generate`, body),
     publish: (week_start: string) => client.post<Schedule>(`${base(week_start)}/publish`),
     addAssignment: (week_start: string, body: AssignmentCreate) =>
       client.post<AssignmentEditOut>(`${base(week_start)}/assignments`, body),

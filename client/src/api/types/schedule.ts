@@ -1,6 +1,6 @@
 import type { ScheduleStatus } from './enums';
 
-export type Constraint = 'availability' | 'overlap' | 'min_rest' | 'max_shifts';
+export type Constraint = 'availability' | 'overlap' | 'min_rest' | 'max_shifts' | 'blocked';
 
 export interface Assignment {
   id: number;
@@ -60,6 +60,16 @@ export interface ScheduleGenerateOut {
   /** False when the search budget ran out before the search finished. */
   complete: boolean;
   steps: number;
+}
+
+/** A person who must not work one local day; the optional body of generate. */
+export interface DayOffIn {
+  user_id: number;
+  day: string;
+}
+
+export interface ScheduleGenerateIn {
+  unavailable: DayOffIn[];
 }
 
 export interface AssignmentCreate {

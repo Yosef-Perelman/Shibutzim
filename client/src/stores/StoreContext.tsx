@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
+import type { AssistantStore } from './AssistantStore';
 import type { AuthStore } from './AuthStore';
 import type { AvailabilityStore } from './AvailabilityStore';
 import type { PayStore } from './PayStore';
@@ -42,4 +43,8 @@ export function usePayStore(): PayStore {
 
 export function useTimeStore(): TimeStore {
   return useRootStore().time;
+}
+
+export function useAssistantStore(): AssistantStore {
+  return useRootStore().assistant;
 }
