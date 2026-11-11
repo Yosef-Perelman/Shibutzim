@@ -11,6 +11,7 @@ from app.core.errors import Conflict, ErrorCode, Forbidden, NotFound, Validation
 from app.models import Assignment, Schedule, User
 from app.scheduler import Constraint, SchedulingRules, TraceKind
 from app.services import schedule_service as service
+from app.services.schedule_service import DayOff
 from tests.factories import (
     NEXT_WEEK,
     NOW,
@@ -374,3 +375,151 @@ def test_publish_rejects_a_week_start_that_is_not_a_sunday(session: Session, man
         service.publish_schedule(session, manager, date(2026, 3, 16), now=NOW)
 
     assert raised.value.code == ErrorCode.invalid_week_start
+
+
+# --- days off: "Dana can't work Tuesday" (plan 004) ---
+
+MONDAY = NEXT_WEEK + timedelta(days=1)
+TUESDAY = NEXT_WEEK + timedelta(days=2)
+
+
+def shift_on(session: Session, weekday: int, start: time, end: time, *, staff: int = 1):
+    template = make_shift_template(
+        session, weekday=weekday, start_time=start, end_time=end, required_staff=staff
+    )
+    return make_shift(session, template)
+
+
+def test_generate_with_a_day_off_does_not_assign_that_person_on_that_day(
+    session: Session, manager: User, employee: User, other_employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee, PREFERRED)
+    make_availability(session, shift, other_employee)
+
+    service.generate_schedule(
+        session, manager, NEXT_WEEK, unavailable=[DayOff(employee.id, MONDAY)]
+    )
+
+    assert assigned(session, shift.id) == {other_employee.id}
+
+
+def test_a_day_off_leaves_the_persons_other_days_alone(
+    session: Session, manager: User, employee: User
+) -> None:
+    monday = shift_on(session, 1, time(7), time(15))
+    tuesday = shift_on(session, 2, time(7), time(15))
+    make_availability(session, monday, employee)
+    make_availability(session, tuesday, employee)
+
+    service.generate_schedule(
+        session, manager, NEXT_WEEK, unavailable=[DayOff(employee.id, MONDAY)]
+    )
+
+    assert assigned(session, monday.id) == set()
+    assert assigned(session, tuesday.id) == {employee.id}
+
+
+def test_a_shift_belongs_to_the_local_day_it_starts_on(
+    session: Session, manager: User, employee: User
+) -> None:
+    night = shift_on(session, 1, time(23), time(7))  # Monday 23:00, ends Tuesday morning
+    early = shift_on(session, 1, time(0, 30), time(6))  # 22:30 UTC on Sunday, Monday locally
+    make_availability(session, night, employee)
+    make_availability(session, early, employee)
+
+    service.generate_schedule(
+        session, manager, NEXT_WEEK, unavailable=[DayOff(employee.id, MONDAY)]
+    )
+
+    assert assigned(session, night.id) == set()
+    assert assigned(session, early.id) == set()
+
+
+def test_a_day_off_on_the_day_a_night_shift_ends_does_not_block_it(
+    session: Session, manager: User, employee: User
+) -> None:
+    night = shift_on(session, 1, time(23), time(7))
+    make_availability(session, night, employee)
+
+    service.generate_schedule(
+        session, manager, NEXT_WEEK, unavailable=[DayOff(employee.id, TUESDAY)]
+    )
+
+    assert assigned(session, night.id) == {employee.id}
+
+
+def test_the_same_day_off_twice_is_the_same_as_once(
+    session: Session, manager: User, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee)
+
+    proposal = service.propose_schedule(
+        session,
+        manager,
+        NEXT_WEEK,
+        unavailable=[DayOff(employee.id, MONDAY), DayOff(employee.id, MONDAY)],
+    )
+
+    assert proposal.result.assignments == ()
+
+
+def test_propose_explains_a_slot_left_empty_by_a_day_off_and_saves_nothing(
+    session: Session, manager: User, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee)
+
+    proposal = service.propose_schedule(
+        session, manager, NEXT_WEEK, unavailable=[DayOff(employee.id, MONDAY)]
+    )
+
+    assert proposal.sentences == [
+        "Monday 07:00 needs 1, only 0 available; Eli Employee excluded by a requested day off"
+    ]
+    assert session.query(Schedule).count() == 0
+    assert session.query(Assignment).count() == 0
+
+
+def test_a_day_off_outside_the_week_is_rejected_and_nothing_is_saved(
+    session: Session, manager: User, employee: User
+) -> None:
+    monday_shift(session)
+
+    with pytest.raises(ValidationFailed) as raised:
+        service.generate_schedule(
+            session,
+            manager,
+            NEXT_WEEK,
+            unavailable=[DayOff(employee.id, NEXT_WEEK + timedelta(days=7))],
+        )
+
+    assert raised.value.code == ErrorCode.validation_error
+    assert session.query(Schedule).count() == 0
+
+
+@pytest.mark.parametrize("who", ["unknown", "manager", "deactivated"])
+def test_a_day_off_for_someone_who_cannot_be_scheduled_is_rejected(
+    session: Session, manager: User, who: str
+) -> None:
+    monday_shift(session)
+    user_id = {
+        "unknown": 987654,
+        "manager": manager.id,
+        "deactivated": make_user(session, role=Role.employee, is_active=False).id,
+    }[who]
+
+    with pytest.raises(ValidationFailed) as raised:
+        service.propose_schedule(session, manager, NEXT_WEEK, unavailable=[DayOff(user_id, MONDAY)])
+
+    assert raised.value.code == ErrorCode.user_not_assignable
+
+
+def test_days_off_are_for_managers_only(session: Session, employee: User) -> None:
+    monday_shift(session)
+
+    with pytest.raises(Forbidden):
+        service.generate_schedule(
+            session, employee, NEXT_WEEK, unavailable=[DayOff(employee.id, MONDAY)]
+        )
