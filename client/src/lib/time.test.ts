@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  currentMonthStart,
   currentWeekStart,
   formatDay,
+  formatMonth,
   formatTime,
   formatTimeRange,
   formatWeekRange,
   isPastWeek,
   localDate,
+  monthRange,
+  shiftMonth,
   shiftWeek,
 } from './time';
 
@@ -79,5 +83,28 @@ describe('Jerusalem time formatting', () => {
   it('formats a week range inside one month and across two', () => {
     expect(formatWeekRange('2026-11-08')).toBe('8–14 Nov');
     expect(formatWeekRange('2026-11-29')).toBe('29 Nov – 5 Dec');
+  });
+});
+
+describe('months', () => {
+  it('finds the first day of this month by the Jerusalem date', () => {
+    expect(currentMonthStart(new Date('2026-11-09T12:00:00Z'))).toBe('2026-11-01');
+    // 22:30 UTC on 31 Oct is already 1 Nov in Jerusalem (UTC+2).
+    expect(currentMonthStart(new Date('2026-10-31T22:30:00Z'))).toBe('2026-11-01');
+  });
+
+  it('gives the first and last day of a month, leap years included', () => {
+    expect(monthRange('2026-11-01')).toEqual({ from: '2026-11-01', to: '2026-11-30' });
+    expect(monthRange('2028-02-01')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+    expect(monthRange('2027-02-01')).toEqual({ from: '2027-02-01', to: '2027-02-28' });
+  });
+
+  it('moves by whole months across the end of the year', () => {
+    expect(shiftMonth('2026-12-01', 1)).toBe('2027-01-01');
+    expect(shiftMonth('2026-01-01', -1)).toBe('2025-12-01');
+  });
+
+  it('names a month with its year', () => {
+    expect(formatMonth('2026-11-01')).toBe('November 2026');
   });
 });
