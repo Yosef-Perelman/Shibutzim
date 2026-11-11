@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app import scheduler
 from app.config import get_settings
+from app.core.enums import Role, ScheduleStatus
 from app.core.errors import Conflict, ErrorCode, NotFound, ValidationFailed
 from app.models import Assignment, Schedule, Shift, User
 from app.repositories import (
@@ -24,9 +25,9 @@ from app.repositories import (
 )
 from app.scheduler import Constraint
 from app.scheduler.explain import describe_shift
-from app.services.authorization import ensure_manager
+from app.services.authorization import ensure_manager, ensure_self_or_manager
 from app.services.users import ensure_assignable, get_user_or_404
-from app.services.weeks import ensure_week_start
+from app.services.weeks import day_range_bounds, ensure_week_start
 
 AVAILABILITY_IGNORED = "availability_ignored"
 MAX_SHIFTS_EXCEEDED = "max_shifts_exceeded"
@@ -47,6 +48,35 @@ class AssignmentEdit:
     user: User
     shift: Shift
     warnings: list[EditWarning]
+
+
+@dataclass(frozen=True)
+class AssignedShift:
+    """One planned shift of a person and whether its schedule is published."""
+
+    assignment: Assignment
+    shift: Shift
+    schedule_status: ScheduleStatus
+
+
+def list_assigned_shifts(
+    session: Session,
+    current_user: User,
+    *,
+    from_day: date,
+    to_day: date,
+    user_id: int | None = None,
+) -> list[AssignedShift]:
+    """Planned shifts of `user_id` (default: the current user) starting on the local days
+    from_day..to_day inclusive, across weeks. Employees see published schedules only."""
+    target_id = current_user.id if user_id is None else user_id
+    ensure_self_or_manager(current_user, target_id)
+    get_user_or_404(session, target_id)
+    start, end = day_range_bounds(from_day, to_day, get_settings().tz)
+    rows = assignment_repository.list_for_user_in_range(
+        session, target_id, start, end, published_only=current_user.role is not Role.manager
+    )
+    return [AssignedShift(assignment, shift, status) for assignment, shift, status in rows]
 
 
 def add_assignment(
