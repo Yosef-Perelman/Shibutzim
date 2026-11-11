@@ -15,6 +15,7 @@ class ErrorCode(StrEnum):
     validation_error = "validation_error"
     clock_out_before_clock_in = "clock_out_before_clock_in"
     entry_too_long = "entry_too_long"
+    invalid_week_start = "invalid_week_start"
     # 401
     invalid_credentials = "invalid_credentials"
     invalid_token = "invalid_token"

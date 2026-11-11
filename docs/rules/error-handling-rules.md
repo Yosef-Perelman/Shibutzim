@@ -19,7 +19,7 @@ Every non-2xx API response has this body:
 
 | Exception | HTTP | Example codes |
 |---|---|---|
-| `ValidationFailed` | 422 | `validation_error`, `clock_out_before_clock_in`, `entry_too_long` |
+| `ValidationFailed` | 422 | `validation_error`, `clock_out_before_clock_in`, `entry_too_long`, `invalid_week_start` |
 | `Unauthorized` | 401 | `invalid_credentials`, `invalid_token`, `token_expired` |
 | `Forbidden` | 403 | `forbidden` |
 | `NotFound` | 404 | `user_not_found`, `time_entry_not_found`, `shift_template_not_found`, `shift_not_found` |
