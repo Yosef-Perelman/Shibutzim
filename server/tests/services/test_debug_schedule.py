@@ -135,3 +135,32 @@ def test_a_week_without_shifts_is_reported_as_an_error(session: Session, manager
         report(session, manager)
 
     assert raised.value.code == ErrorCode.no_shifts_for_week
+
+
+def test_the_report_lists_an_unanswered_employee_only_as_unanswered(
+    session: Session, manager: User
+) -> None:
+    """Tamar works Monday night and never answered for Tuesday: her rest is not the cause."""
+    night = make_shift(
+        session,
+        make_shift_template(
+            session, weekday=1, start_time=time(23), end_time=time(7), required_staff=1
+        ),
+    )
+    morning = make_shift(
+        session,
+        make_shift_template(
+            session, weekday=2, start_time=time(7), end_time=time(15), required_staff=3
+        ),
+    )
+    tamar, dana, noa = person(session, "Tamar"), person(session, "Dana"), person(session, "Noa")
+    make_availability(session, night, tamar)
+    make_availability(session, morning, dana)
+    make_availability(session, morning, noa)
+
+    text = report(session, manager)
+
+    assert "Tuesday 07:00 needs 3, only 2 available" in text
+    assert "excluded by" not in text
+    assert "Tamar: minimum rest" not in text
+    assert "Did not answer available: Tamar" in text

@@ -243,3 +243,23 @@ def test_explain_names_a_constraint_once_even_when_two_shifts_cause_it() -> None
     sentences = explain(result_with(unfilled), [MONDAY_NIGHT, TUESDAY_MORNING], STAFF, TZ)
 
     assert sentences == ["Tuesday 07:00 needs 2, only 1 available; Dana excluded by minimum rest"]
+
+
+def test_explain_skips_an_unanswered_employee_even_if_a_rule_also_blocks() -> None:
+    """Dana never said she could work Tuesday: minimum rest is not why she is missing."""
+    unfilled = UnfilledSlot(
+        shift_id=2,
+        required=3,
+        assigned=1,
+        reasons=(
+            Exclusion(1, Constraint.availability),
+            Exclusion(1, Constraint.min_rest, shift_id=1),
+            Exclusion(3, Constraint.max_shifts),
+        ),
+    )
+
+    sentences = explain(result_with(unfilled), [MONDAY_NIGHT, TUESDAY_MORNING], STAFF, TZ)
+
+    assert sentences == [
+        "Tuesday 07:00 needs 3, only 1 available; Omer excluded by max shifts per week"
+    ]
