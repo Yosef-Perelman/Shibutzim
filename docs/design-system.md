@@ -130,7 +130,7 @@ Space inside a card is `lg` (16 on phones); between cards `md`; between page sec
 
 **Layout**
 
-- Employee screens are designed at **375 px** and widened: one column, content width up to 640 px, centered.
+- Employee screens are designed at **375 px** (checked in a real 375 px frame, not a resized window) and widened: one column, content width up to 640 px, centered.
   The primary action is reachable by thumb (bottom of the screen or in the card), touch targets are at least
   **44 × 44 px**, the navigation is a bottom bar of three items (Shifts, Availability, Pay).
 - Manager screens are **desktop-first** (design at 1280 px, content width up to 1200 px) and stay usable at 768 px
@@ -159,7 +159,7 @@ Mantine components and the theme come first; custom CSS only for the layout of a
 
 | Variant | Look | Use |
 |---|---|---|
-| Primary | filled `primary`, white text, pill, height 44 (mobile) / 40 (desktop) | the one main action of a screen or dialog |
+| Primary | filled `primary`, white text, pill, height 44 | the one main action of a screen or dialog |
 | Secondary | outline: 1.5 px `primary` border, `primary` text, transparent fill, same shape | alternative actions beside a primary |
 | Subtle | text only, `primary` color, `primary-tint` on hover | tertiary actions, "Retry", "Cancel" |
 | Danger | filled `danger`, white text | confirmed destructive actions only (remove assignment) |
@@ -177,10 +177,10 @@ shrink below 44 px on phones.
 - Focus: 2 px `sky` ring. Invalid: `danger` border plus the error text.
 - Do: a visible label for every input; show the server's `error.message` next to the control that caused it.
   Don't: placeholder as the only label; red border without text.
-- **Three-state availability control:** a segmented control of three pills (Available, Preferred, Unavailable),
-  each with its icon. The selected pill is filled with the status text color (`#166c3b`, `#5b3fc4`, `#5f5b70`)
-  and white text (6.5:1, 7.1:1, 6.5:1), so the selection is visible by fill, icon and word. Unselected
-  pills are `surface` with a `line` border and `ink` text.
+- **Three-state availability control:** three equal tiles (Available, Preferred, Unavailable), the icon above the
+  word, so all three words fit on a 375 px screen. The selected tile is filled with the status text color
+  (`#166c3b`, `#5b3fc4`, `#6b677a`) and white text (6.5:1, 7.1:1, 5.5:1), so the selection is visible by fill, icon
+  and word. Unselected tiles are `surface` with `ink` text. `radius-lg`, not a pill, because the tiles are taller.
 
 ### 6.3 Cards, lists and tables
 
@@ -212,9 +212,9 @@ shrink below 44 px on phones.
 
 | State | Look |
 |---|---|
-| Loading | skeletons in the shape of the final content (`card` fill pulsing to `card-strong`); no full-page spinner |
+| Loading | skeletons in the shape of the final content (`card` fill pulsing to `card-strong`, on the page background); no full-page spinner |
 | Empty | centered icon tile, `h3` message that says what is missing, one `body` sentence saying why or what to do, and the action if one exists (e.g. "Schedule not published yet") |
-| Error | `danger` alert card with `IconAlertCircle`, the server's `error.message`, and a **Retry** button; never a blank page and never a raw stack trace or status code alone |
+| Error | `danger` alert card with `IconAlertCircle`, the server's `error.message`, and an outlined danger **Retry** button; never a blank page and never a raw stack trace or status code alone |
 
 ### 6.6 Dialogs and notifications
 
