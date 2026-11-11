@@ -28,7 +28,7 @@ def test_the_defaults_are_cheap_no_retries_and_spaced_calls():
     args = parse_args([])
 
     assert args.retries == 0
-    assert args.interval >= 6
+    assert args.interval >= 12
     assert args.max_calls <= 100
 
 

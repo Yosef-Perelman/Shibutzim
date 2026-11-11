@@ -107,15 +107,19 @@ shibutzim/
       scheduler/            pure: solve(), constraints, scoring, trace/explain
       assistant/
         agent.py            the agent loop
-        tools/              one module per tool + registry
-        prompts/            system prompt and tool descriptions as files
-        llm/                interface + Gemini adapter
-        logging.py          tool-call log writer
+        chat.py             one chat turn (today's date, step limit) for the router
+        context.py          ToolContext: session, current user, llm
+        dispatch.py         call_tool: role check, validation, run, log; never raises for the model
+        logging.py          tool-call log writer (through a service)
+        formatting.py       hours, weekday and time formats shared by tools
+        tools/              one module per tool + registry (role filter)
+        prompts/            system prompt, role rules and tool descriptions as files
+        llm/                interface, Gemini adapter, scripted fake, provider selection
       core/                 errors, enums, security (jwt, bcrypt), time utilities
     alembic/                migrations (never edited after creation)
     tests/
       unit/pay/  unit/scheduler/  services/  api/
-    evals/                  assistant eval cases + runner
+    evals/                  assistant eval cases, checkers, call budget, runner (python -m evals.run)
     scripts/                seed.py, ingest_handbook.py
     handbook/               the employee handbook (markdown)
     pyproject.toml
@@ -186,26 +190,40 @@ Not in the database in v1:
 
 ### 6.4 Assistant – read question
 
-1. `POST /api/assistant/chat` with the message history.
-2. The agent loop sends the system prompt, the tool definitions **filtered by the user's role**, and the history
-   to the `llm` adapter.
-3. When the model requests a tool, the loop dispatches to the tool function with the current user, logs the call,
-   and feeds the result back. The loop ends when the model answers in text or hits the step limit.
-4. `search_policy` embeds the question, runs a cosine-similarity query over `handbook_chunks`, and returns the
-   top chunks with section titles so the answer can cite them.
+1. `POST /api/assistant/chat` carries the whole history (at most 20 messages of 2,000 characters; the client holds
+   the conversation). The `llm` dependency raises `503 assistant_unavailable` when no key is set.
+2. `chat.answer` gives the agent loop today's local date; the loop builds the system prompt from files (who is
+   asking, the role's rules, this and next week's dates) and sends it with the history and the tool definitions
+   **filtered by the user's role**.
+3. When the model requests a tool, `call_tool` checks the role again, validates the arguments, runs the tool as the
+   current user, writes one `tool_call_logs` row and feeds a compact result back. Unknown tools, a wrong role, bad
+   arguments and domain errors come back as `{"error": {code, message}}` results the model can explain. Only a
+   provider outage is raised, so the endpoint answers 503. The loop ends on a text answer or at the step limit.
+4. `search_policy` embeds the question as a query, ranks `handbook_chunks` by cosine similarity and returns the top
+   three with section titles. The response's `citations` are the found sections whose title the answer names.
 
 ### 6.5 Assistant – write proposal
 
-1. A write tool (`generate_schedule_draft`) runs the **same service in dry-run mode** and returns a proposal: the
-   would-be assignments, unfilled slots and a human-readable summary.
-2. The response marks the message as a proposal; the client renders **Confirm / Cancel**.
-3. Confirm calls the normal REST endpoint (`POST /api/schedules/{week}/generate` with the extra constraints).
-   The assistant never writes directly.
+1. `generate_schedule_draft(week_start, unavailable)` resolves each named employee, then runs the same service in
+   dry-run mode (`schedule_service.propose_schedule` with days off as a `blocked` hard constraint). It returns a
+   compact result to the model and the full proposal (assignments by shift, unfilled sentences, days off, whether
+   it replaces a draft) as a side channel to the response. A week that is already published is refused.
+2. The response marks the message with a `proposal`; the client renders **Confirm / Cancel**.
+3. Confirm calls the normal REST endpoint, `POST /api/schedules/{week}/generate` with the proposal's days off. The
+   solver is deterministic, so the stored draft equals the proposal. The assistant never writes directly.
 
 ### 6.6 Handbook ingestion
 
-`scripts/ingest_handbook.py` reads `server/handbook/*.md`, splits by `##` section, embeds each section through
-the `llm` adapter, and upserts `handbook_chunks`. Re-running replaces the chunks.
+`scripts/ingest_handbook.py` reads `server/handbook/*.md`, splits by `##` section, embeds all sections in one
+provider call through the `llm` adapter, and replaces `handbook_chunks`. Re-running leaves the same rows.
+
+### 6.7 Assistant evals
+
+`python -m evals.run` drives the real agent loop for fifteen fixed cases against the seeded development database
+and the real model. A case names the user, the question, the tools expected or forbidden, facts that must repeat
+values from that run's tool results, and citations or refusals. The run is limited by the provider's quota: calls
+are spaced apart, capped, never retried on a provider error, and a failing case is retried only with `--retries`.
+`--only` runs chosen cases.
 
 ## 7. Cross-cutting conventions
 
@@ -265,8 +283,9 @@ the `llm` adapter, and upserts `handbook_chunks`. Re-running replaces the chunks
 - **Routes** split by role: `/me/*` for everyone signed in, `/manager/*` for managers only, guarded by the store's
   role; an employee on a manager address, and anyone on an unknown address, is sent to their home. The server is
   still the real guard.
-- **Assistant UI** (plan 004): a chat panel; proposal messages render Confirm / Cancel and call the normal REST
-  endpoint.
+- **Assistant UI**: a screen at `/me/assistant` for both roles. `AssistantStore` holds the conversation and sends
+  it within the server's limits; answers show handbook citations and what was looked at; a proposal renders
+  Confirm / Cancel, and Confirm calls the normal generate endpoint through the store.
 
 ## 10. Deployment and operations
 
@@ -298,3 +317,9 @@ Planned for the last roadmap plan; designed for from the start:
 | Vite proxy for `/api` in development | CORS with an explicit API host | the browser stays same-origin, no CORS settings to keep in step, and plan 005's single container (FastAPI serving the built client) needs no change |
 | Access token in `localStorage` | `httpOnly` cookie, refresh tokens | tokens last eight hours and the demo has no refresh flow; a cookie would need server changes and CSRF handling |
 | Stores return an `ActionResult` instead of throwing | store-level error fields, exceptions | a dialog shows the blocking message next to the action that caused it, and a screen can show warnings, without each store keeping a field per action |
+| A day off is a `blocked` hard constraint in the solver | rewrite the person's availability answers before solving | the explanation can say "excluded by a requested day off" instead of claiming the person was unavailable, and the scheduler matrix proves it is never violated |
+| Confirming a proposal calls generate again | post the proposal's assignments back | one write path to test; the solver is deterministic, so the stored draft equals the proposal |
+| A write tool's proposal travels beside the model's result | feed the full proposal to the model | the model gets a compact summary, the UI gets the details, and the model cannot misstate what is saved |
+| Tools resolve people by name, shifts by day and name | ids in tool arguments | the model never sees ids it could invent; ambiguity becomes an error that asks which one |
+| Evals run on demand with a call budget | evals in CI | they need a key and the provider's quota is limited; the budget, the spacing and no retries on provider errors keep a run cheap |
+| The chat model is a setting (`gemini-3.5-flash`) | a fixed model in code | provider model names are retired without notice; plan 004 found `gemini-2.5-flash` gone and `gemini-3.8-flash` timing out |

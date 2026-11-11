@@ -61,7 +61,7 @@ mapping code and one vocabulary for people and agents.
 | **Publish** | mark a schedule `published` | `POST /api/schedules/{week_start}/publish` |
 | **Solver** | the pure scheduling algorithm: backtracking search with forward checking for coverage, then a hill-climbing polish for the soft constraints | `scheduler.solve(shifts, employees, availabilities, rules, trace=False)` |
 | **Search budget** | the number of search nodes the solver may use (`max_steps`), not a time, so a solve is reproducible; the best result found is returned and `complete` says whether the search finished | `SchedulingRules.max_steps` · `ScheduleResult.complete` |
-| **Hard constraint** | a rule the solver never violates (availability, required staff, no overlap, minimum rest, max shifts per week) | `scheduler/constraints.py` |
+| **Hard constraint** | a rule the solver never violates (availability, required staff, no overlap, minimum rest, max shifts per week, a manager's day off) | `scheduler/constraints.py` |
 | **Soft constraint** | a preference the solver scores (fair hours, preferred shifts) | `scheduler/scoring.py` |
 | **Minimum rest** | required gap between the end of one shift and the start of the next of one employee, measured in real elapsed time; default 8 hours. v1 checks one week at a time, so rest across the Saturday-Sunday boundary is not checked | `SchedulingRules.min_rest_hours` · `min_rest`, `min_rest_violation` |
 | **Max shifts per week** | per-employee cap; default 5 | `SchedulingRules.max_shifts_per_week` |
@@ -69,8 +69,9 @@ mapping code and one vocabulary for people and agents.
 | **Schedule result** | solver output: assignments, score, unfilled slots with reasons, steps used | `ScheduleResult` |
 | **Score** | the solver's objective: positions filled first, then `preferred_count × 120 − hours spread` (spread in minutes between the most and least hours among employees who answered) | `Score` · `scoring.PREFERRED_WEIGHT` |
 | **Unfilled slot** | the missing positions of one shift (`required` minus `assigned`), with why each other employee could not take it | `UnfilledSlot` · `unfilled` in the generate response |
-| **Exclusion** | one employee excluded from one shift by one hard constraint (`availability`, `overlap`, `min_rest`, `max_shifts`), naming the conflicting shift when there is one | `Exclusion` · `Constraint` |
+| **Exclusion** | one employee excluded from one shift by one hard constraint (`availability`, `overlap`, `min_rest`, `max_shifts`, `blocked`), naming the conflicting shift when there is one | `Exclusion` · `Constraint` |
 | **Explanation** | the sentence for an unfilled slot, e.g. "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest" | `scheduler.explain.explain` · `sentence` |
+| **Day off (block)** | a manager's request that one employee does not work one local day: every shift that starts that day is ruled out for that person, whatever they answered; given as `unavailable` to generate and to the assistant's draft tool | `Block`, `Constraint.blocked` · `DayOff` · `{"unavailable": [{"user_id", "day"}]}` |
 | **Trace (explain) mode** | solver option that records every placement, backtrack and candidate eliminated by forward checking (capped at 20 000 events) | `solve(..., trace=True)` → `ScheduleResult.trace` of `TraceEvent` |
 
 ### Time and pay
@@ -121,7 +122,9 @@ mapping code and one vocabulary for people and agents.
 | **Tool** | a function the model may call; runs services as the current user | `assistant/tools/` |
 | **Read tool** | a tool that only reads | e.g. `get_my_hours` |
 | **Write tool** | a tool that would change data; returns a proposal instead | e.g. `generate_schedule_draft` |
-| **Proposal** | a write tool's output: the intended change plus a summary; applied only after the user confirms through the REST endpoint | `Proposal` schema · `"proposal"` field in the chat response |
+| **Proposal** | a write tool's output: the intended change plus a summary; applied only after the user confirms through the REST endpoint | `ProposalOut` · `"proposal"` field in the chat response · `ScheduleProposal` |
+| **Tool outcome** | what `call_tool` returns: the result for the model, its status (`ok`, `error`, `refused`) and, for a write tool, the full proposal for the UI | `ToolOutcome` · `assistant/dispatch.py` |
+| **Tool context** | what a tool call runs with: database session, current user, llm | `ToolContext` |
 | **Tool call log** | audit record of one tool call: tool, args, user, duration, result size, status | `ToolCallLog` · `tool_call_logs` |
 | **LLM adapter** | the single interface to a model provider: chat with tool calling, embeddings | `assistant/llm/` (`LLM` protocol, `GeminiLLM`) |
 | **Prompt** | system prompt or tool description, kept in a file | `assistant/prompts/*.md` |
@@ -129,7 +132,10 @@ mapping code and one vocabulary for people and agents.
 | **Chunk** | one handbook section with its embedding | `HandbookChunk` · `handbook_chunks` |
 | **Ingestion** | splitting, embedding and storing the handbook | `scripts/ingest_handbook.py` |
 | **Citation** | the section title the assistant names when answering from the handbook | `section_title` in `search_policy` results |
-| **Eval** | a fixed question with expected tool calls, expected facts and required citation | `server/evals/` |
+| **Eval** | a fixed question with expected tool calls, expected facts and required citation | `server/evals/` · `python -m evals.run` |
+| **Eval budget** | the call cap and the minimum gap between provider calls that keep an eval run inside the provider's quota | `BudgetedLLM` · `--max-calls`, `--interval` |
+| **Assistant unavailable** | the assistant is off: no API key, or the provider failed or timed out; every other endpoint keeps working | `503 assistant_unavailable` · `ServiceUnavailable` |
+| **Assistant screen** | the chat for every signed-in person, with example questions, citations and the proposal card | `/me/assistant` · `features/assistant/AssistantScreen.tsx` · `AssistantStore` |
 
 ## 3. Time vocabulary
 
