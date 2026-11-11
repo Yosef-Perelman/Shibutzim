@@ -1,7 +1,7 @@
 """Generating a draft schedule with the solver, proposing without saving, and reading a schedule
 (product-definition §5.2, architecture §6.2)."""
 
-from datetime import date, time
+from datetime import date, time, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.scheduler import Constraint, SchedulingRules, TraceKind
 from app.services import schedule_service as service
 from tests.factories import (
     NEXT_WEEK,
+    NOW,
     THIS_WEEK,
     make_assignment,
     make_availability,
@@ -307,5 +308,69 @@ def test_get_orders_assignments_by_shift_time_then_name(session: Session, manage
 def test_get_rejects_a_week_start_that_is_not_a_sunday(session: Session, manager: User) -> None:
     with pytest.raises(ValidationFailed) as raised:
         service.get_schedule(session, manager, date(2026, 3, 16))
+
+    assert raised.value.code == ErrorCode.invalid_week_start
+
+
+# --- publish ---
+
+
+def test_publish_marks_the_draft_published_at_the_given_time(
+    session: Session, manager: User
+) -> None:
+    make_schedule(session)
+
+    view = service.publish_schedule(session, manager, NEXT_WEEK, now=NOW)
+
+    assert view.schedule.status is ScheduleStatus.published
+    assert view.schedule.published_at == NOW
+
+
+def test_publish_makes_the_schedule_visible_to_employees(
+    session: Session, manager: User, employee: User
+) -> None:
+    make_schedule(session)
+    service.publish_schedule(session, manager, NEXT_WEEK, now=NOW)
+
+    assert service.get_schedule(session, employee, NEXT_WEEK).schedule.week_start == NEXT_WEEK
+
+
+def test_publish_of_an_empty_draft_is_allowed(session: Session, manager: User) -> None:
+    make_schedule(session)
+
+    assert service.publish_schedule(session, manager, NEXT_WEEK, now=NOW).assignments == []
+
+
+def test_publish_twice_is_schedule_published_and_keeps_the_first_time(
+    session: Session, manager: User
+) -> None:
+    make_schedule(session, status=ScheduleStatus.published, published_at=NOW)
+
+    with pytest.raises(Conflict) as raised:
+        service.publish_schedule(session, manager, NEXT_WEEK, now=NOW + timedelta(hours=1))
+
+    assert raised.value.code == ErrorCode.schedule_published
+    assert session.query(Schedule).one().published_at == NOW
+
+
+def test_publish_without_a_schedule_is_not_found(session: Session, manager: User) -> None:
+    with pytest.raises(NotFound) as raised:
+        service.publish_schedule(session, manager, NEXT_WEEK, now=NOW)
+
+    assert raised.value.code == ErrorCode.schedule_not_found
+
+
+def test_publish_is_for_managers_only_and_changes_nothing(session: Session, employee: User) -> None:
+    make_schedule(session)
+
+    with pytest.raises(Forbidden):
+        service.publish_schedule(session, employee, NEXT_WEEK, now=NOW)
+
+    assert session.query(Schedule).one().status is ScheduleStatus.draft
+
+
+def test_publish_rejects_a_week_start_that_is_not_a_sunday(session: Session, manager: User) -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        service.publish_schedule(session, manager, date(2026, 3, 16), now=NOW)
 
     assert raised.value.code == ErrorCode.invalid_week_start

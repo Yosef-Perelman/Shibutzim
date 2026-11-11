@@ -45,11 +45,19 @@ def monday_shift(session: Session, *, staff: int = 1, hour: int = 7):
     [
         ("GET", BASE),
         ("POST", f"{BASE}/generate"),
+        ("POST", f"{BASE}/publish"),
         ("POST", f"{BASE}/assignments"),
         ("PATCH", f"{BASE}/assignments/1"),
         ("DELETE", f"{BASE}/assignments/1"),
     ],
-    ids=["get", "generate", "add_assignment", "replace_assignment", "remove_assignment"],
+    ids=[
+        "get",
+        "generate",
+        "publish",
+        "add_assignment",
+        "replace_assignment",
+        "remove_assignment",
+    ],
 )
 def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, path: str) -> None:
     response = client.request(method, path, json={} if method in {"POST", "PATCH"} else None)
@@ -65,11 +73,12 @@ def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, p
     ("method", "path", "body"),
     [
         ("POST", f"{BASE}/generate", None),
+        ("POST", f"{BASE}/publish", None),
         ("POST", f"{BASE}/assignments", {"shift_id": 1, "user_id": 1}),
         ("PATCH", f"{BASE}/assignments/1", {"user_id": 1}),
         ("DELETE", f"{BASE}/assignments/1", None),
     ],
-    ids=["generate", "add_assignment", "replace_assignment", "remove_assignment"],
+    ids=["generate", "publish", "add_assignment", "replace_assignment", "remove_assignment"],
 )
 def test_manager_only_endpoints_return_403_for_an_employee(
     employee_client: TestClient, method: str, path: str, body: dict | None
@@ -398,3 +407,47 @@ def test_remove_of_an_unknown_assignment_returns_404(
 
     assert response.status_code == 404
     assert error_code(response) == "assignment_not_found"
+
+
+# --- publish ---
+
+
+def test_publish_returns_the_published_schedule(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    schedule, shift = make_schedule(session), monday_shift(session)
+    make_assignment(session, schedule, shift, employee)
+
+    response = manager_client.post(f"{BASE}/publish")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+    assert response.json()["published_at"] == "2026-03-09T12:00:00Z"
+    assert len(response.json()["assignments"]) == 1
+
+
+def test_employees_can_read_the_schedule_once_it_is_published(
+    manager_client: TestClient, employee_client: TestClient, session: Session
+) -> None:
+    make_schedule(session)
+    assert employee_client.get(BASE).status_code == 404
+
+    manager_client.post(f"{BASE}/publish")
+
+    assert employee_client.get(BASE).status_code == 200
+
+
+def test_publish_twice_returns_409(manager_client: TestClient, session: Session) -> None:
+    make_schedule(session, status=ScheduleStatus.published)
+
+    response = manager_client.post(f"{BASE}/publish")
+
+    assert response.status_code == 409
+    assert error_code(response) == "schedule_published"
+
+
+def test_publish_without_a_schedule_returns_404(manager_client: TestClient) -> None:
+    response = manager_client.post(f"{BASE}/publish")
+
+    assert response.status_code == 404
+    assert error_code(response) == "schedule_not_found"
