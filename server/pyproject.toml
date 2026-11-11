@@ -34,7 +34,7 @@ src = ["."]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "DTZ"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "tests", "scripts"]
+known-first-party = ["app", "tests", "scripts", "evals"]
 # The migrations folder is also called alembic; the library is third party.
 known-third-party = ["alembic"]
 
