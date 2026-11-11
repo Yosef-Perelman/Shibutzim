@@ -101,7 +101,7 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 
 ## Common commands
 
-Server commands run from `server/`; `docker compose` runs from the repository root. Copy `.env.example` to
+Server commands run from `server/`, client commands from `client/`; `docker compose` runs from the repository root. Copy `.env.example` to
 `.env` only if you need to change a default (the database listens on host port **5433**).
 
 | Purpose | Command |
@@ -118,5 +118,7 @@ Server commands run from `server/`; `docker compose` runs from the repository ro
 | Pay matrix, by name | `uv run pytest tests/unit/pay -v` (without `-q`, which cancels `-v`) |
 | Scheduler matrix, by name | `uv run pytest tests/unit/scheduler -v` |
 | Lint and format | `uv run ruff check --fix . && uv run ruff format .` |
-| Client dev server | *(plan 003)* `cd client && npm run dev` |
+| Client dev server | `cd client && npm run dev` (API on port 8000; Vite proxies `/api`; see `client/.env.example`) |
+| Client checks | `cd client && npm run lint && npm run typecheck && npm test` |
+| Client build, format | `cd client && npm run build` · `npm run format` |
 | Assistant evals | *(plan 004)* `uv run python -m evals.run` |
