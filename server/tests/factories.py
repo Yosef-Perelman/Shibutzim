@@ -10,10 +10,18 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.core.enums import Role, TimeEntrySource
+from app.core.enums import AvailabilityStatus, Role, ScheduleStatus, TimeEntrySource
 from app.core.security import create_access_token, hash_password
 from app.core.time import shift_bounds
-from app.models import Shift, ShiftTemplate, TimeEntry, User
+from app.models import (
+    Assignment,
+    Availability,
+    Schedule,
+    Shift,
+    ShiftTemplate,
+    TimeEntry,
+    User,
+)
 
 _sequence = itertools.count(1)
 
@@ -133,3 +141,38 @@ def make_shift(
     session.add(shift)
     session.flush()
     return shift
+
+
+def make_availability(
+    session: Session,
+    shift: Shift,
+    user: User,
+    status: AvailabilityStatus = AvailabilityStatus.available,
+) -> Availability:
+    answer = Availability(shift_id=shift.id, user_id=user.id, status=status)
+    session.add(answer)
+    session.flush()
+    return answer
+
+
+def make_schedule(
+    session: Session,
+    *,
+    week_start: date = NEXT_WEEK,
+    status: ScheduleStatus = ScheduleStatus.draft,
+    published_at: datetime | None = None,
+) -> Schedule:
+    """A schedule row; a `published` one gets `NOW` as its publication time unless given."""
+    if status is ScheduleStatus.published and published_at is None:
+        published_at = NOW
+    schedule = Schedule(week_start=week_start, status=status, published_at=published_at)
+    session.add(schedule)
+    session.flush()
+    return schedule
+
+
+def make_assignment(session: Session, schedule: Schedule, shift: Shift, user: User) -> Assignment:
+    assignment = Assignment(schedule_id=schedule.id, shift_id=shift.id, user_id=user.id)
+    session.add(assignment)
+    session.flush()
+    return assignment
