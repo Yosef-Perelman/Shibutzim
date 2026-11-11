@@ -15,6 +15,7 @@ class Constraint(StrEnum):
     overlap = "overlap"
     min_rest = "min_rest"
     max_shifts = "max_shifts"
+    blocked = "blocked"  # the manager ruled this employee out of this shift (a requested day off)
 
 
 class TraceKind(StrEnum):
@@ -54,6 +55,14 @@ class Availability:
     shift_id: int
     employee_id: int
     status: AvailabilityStatus
+
+
+@dataclass(frozen=True)
+class Block:
+    """A manager's request that one employee does not work one shift, whatever they answered."""
+
+    shift_id: int
+    employee_id: int
 
 
 @dataclass(frozen=True)

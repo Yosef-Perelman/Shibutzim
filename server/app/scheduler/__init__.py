@@ -5,6 +5,7 @@ from app.scheduler.solve import solve
 from app.scheduler.types import (
     Assignment,
     Availability,
+    Block,
     Constraint,
     Employee,
     Exclusion,
@@ -19,6 +20,7 @@ from app.scheduler.types import (
 __all__ = [
     "Assignment",
     "Availability",
+    "Block",
     "Constraint",
     "Employee",
     "Exclusion",

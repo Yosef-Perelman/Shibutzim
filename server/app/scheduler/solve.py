@@ -13,7 +13,9 @@ Phase 2 (soft constraints). Replace one employee on one assignment while that st
 the score of `scoring.py`, within the remaining budget.
 
 Everything is ordered by explicit keys (ids, start times), so equal input gives equal output
-whatever the order of the lists passed in. The module is pure: no I/O, no clock.
+whatever the order of the lists passed in. A `Block` removes one employee from one shift before the
+search starts, like an unavailable answer, but is reported as its own reason. The module is pure:
+no I/O, no clock.
 """
 
 from collections import defaultdict
@@ -27,6 +29,7 @@ from app.scheduler.rules import SchedulingRules
 from app.scheduler.types import (
     Assignment,
     Availability,
+    Block,
     Constraint,
     Employee,
     Exclusion,
@@ -54,6 +57,7 @@ class Problem:
     candidates: dict[int, frozenset[int]]  # employees who answered available or preferred
     conflicts: dict[int, dict[int, Constraint]]  # shift -> shifts one employee cannot combine
     participants: frozenset[int]  # employees who answered available or preferred at least once
+    blocked: frozenset[tuple[int, int]]  # (shift id, employee id) pairs ruled out by the manager
 
 
 def build_problem(
@@ -61,6 +65,7 @@ def build_problem(
     employees: Iterable[Employee],
     availabilities: Iterable[Availability],
     rules: SchedulingRules,
+    blocks: Iterable[Block] = (),
 ) -> Problem:
     ordered = tuple(sorted(shifts, key=lambda shift: (shift.starts_at, shift.id)))
     shift_by_id = {shift.id: shift for shift in ordered}
@@ -81,8 +86,17 @@ def build_problem(
             raise ValueError(f"two availability answers for {key}")
         status[key] = answer.status
 
+    blocked = frozenset((block.shift_id, block.employee_id) for block in blocks)
+    for shift_id, employee_id in blocked:
+        if shift_id not in shift_by_id or employee_id not in employee_ids:
+            raise ValueError(f"block {(shift_id, employee_id)} names an unknown shift or employee")
+
     candidates = {
-        shift.id: frozenset(e for e in employee_ids if is_workable(status.get((shift.id, e))))
+        shift.id: frozenset(
+            e
+            for e in employee_ids
+            if is_workable(status.get((shift.id, e))) and (shift.id, e) not in blocked
+        )
         for shift in ordered
     }
     return Problem(
@@ -94,6 +108,7 @@ def build_problem(
         candidates=candidates,
         conflicts=find_conflicts(ordered, rules),
         participants=frozenset(e for found in candidates.values() for e in found),
+        blocked=blocked,
     )
 
 
@@ -264,9 +279,9 @@ class Search:
         for shift in self.problem.shifts:
             for employee in self.problem.employee_ids:
                 if employee not in self.problem.candidates[shift.id]:
-                    self.emit(
-                        TraceEvent(TraceKind.exclude, shift.id, employee, Constraint.availability)
-                    )
+                    blocked = (shift.id, employee) in self.problem.blocked
+                    reason = Constraint.blocked if blocked else Constraint.availability
+                    self.emit(TraceEvent(TraceKind.exclude, shift.id, employee, reason))
 
 
 def improve(
@@ -330,7 +345,12 @@ def find_unfilled(problem: Problem, pairs: list[tuple[int, int]]) -> tuple[Unfil
         for employee in problem.employee_ids:
             if employee not in have:
                 status = problem.status.get((shift.id, employee))
-                reasons.extend(violations(employee, shift, worked[employee], status, problem.rules))
+                blocked = (shift.id, employee) in problem.blocked
+                reasons.extend(
+                    violations(
+                        employee, shift, worked[employee], status, problem.rules, blocked=blocked
+                    )
+                )
         unfilled.append(UnfilledSlot(shift.id, shift.required_staff, len(have), tuple(reasons)))
     return tuple(unfilled)
 
@@ -341,14 +361,15 @@ def solve(
     availabilities: Iterable[Availability],
     rules: SchedulingRules,
     *,
+    blocks: Iterable[Block] = (),
     trace: bool = False,
 ) -> ScheduleResult:
     """Build the best schedule found for one week; see the module docstring for the method.
 
-    Raises `ValueError` for inconsistent input (duplicate ids, answers for unknown shifts or
-    employees, two answers for one pair) or a problem above `MAX_POSITIONS`.
+    Raises `ValueError` for inconsistent input (duplicate ids, answers or blocks for unknown
+    shifts or employees, two answers for one pair) or a problem above `MAX_POSITIONS`.
     """
-    problem = build_problem(shifts, employees, availabilities, rules)
+    problem = build_problem(shifts, employees, availabilities, rules, blocks)
     search = Search(problem, trace=trace)
     search.run()
     pairs = search.best or []
