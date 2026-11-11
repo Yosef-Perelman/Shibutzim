@@ -43,6 +43,8 @@ class ErrorCode(StrEnum):
     min_rest_violation = "min_rest_violation"
     # 500
     internal_error = "internal_error"
+    # 503
+    assistant_unavailable = "assistant_unavailable"
 
 
 class DomainError(Exception):
@@ -89,6 +91,11 @@ class NotFound(DomainError):
 class Conflict(DomainError):
     status_code = 409
     default_code = ErrorCode.already_clocked_in
+
+
+class ServiceUnavailable(DomainError):
+    status_code = 503
+    default_code = ErrorCode.assistant_unavailable
 
 
 def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
