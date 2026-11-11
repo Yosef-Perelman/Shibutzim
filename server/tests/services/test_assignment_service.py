@@ -1,7 +1,7 @@
 """Manual edits of a schedule: overlap and minimum rest block, everything else warns
 (product-definition §5.2)."""
 
-from datetime import date, time
+from datetime import date, time, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
@@ -473,3 +473,116 @@ def test_remove_is_for_managers_only_and_keeps_the_assignment(
 
     assert count(session) == 1
     assert session.query(Schedule).count() == 1
+
+
+# --- reading a person's assignments across weeks (plan 004: the assistant's get_my_shifts) ---
+
+THIS_MONDAY = THIS_WEEK + timedelta(days=1)
+NEXT_MONDAY = NEXT_WEEK + timedelta(days=1)
+
+
+def assigned_on(session: Session, user: User, week: date, *, status=ScheduleStatus.published):
+    """Put `user` on a Monday 07:00 shift of `week` in that week's schedule (made if needed)."""
+    shift = shift_at(session, week=week)
+    schedule = session.query(Schedule).filter_by(week_start=week).one_or_none()
+    schedule = schedule or make_schedule(session, week_start=week, status=status)
+    return make_assignment(session, schedule, shift, user), shift
+
+
+def listed(rows) -> list[tuple[int, str]]:
+    return [(row.shift.id, row.schedule_status.value) for row in rows]
+
+
+def test_an_employee_lists_their_assignments_across_weeks_earliest_first(
+    session: Session, employee: User
+) -> None:
+    _, next_shift = assigned_on(session, employee, NEXT_WEEK)
+    _, this_shift = assigned_on(session, employee, THIS_WEEK)
+
+    rows = service.list_assigned_shifts(session, employee, from_day=THIS_MONDAY, to_day=NEXT_MONDAY)
+
+    assert listed(rows) == [(this_shift.id, "published"), (next_shift.id, "published")]
+    assert rows[0].shift.name == this_shift.template.name
+
+
+def test_an_employee_does_not_see_assignments_of_a_draft_schedule(
+    session: Session, employee: User
+) -> None:
+    assigned_on(session, employee, NEXT_WEEK, status=ScheduleStatus.draft)
+
+    rows = service.list_assigned_shifts(session, employee, from_day=NEXT_MONDAY, to_day=NEXT_MONDAY)
+
+    assert rows == []
+
+
+def test_a_manager_sees_draft_assignments_of_any_employee(
+    session: Session, manager: User, employee: User
+) -> None:
+    _, shift = assigned_on(session, employee, NEXT_WEEK, status=ScheduleStatus.draft)
+
+    rows = service.list_assigned_shifts(
+        session, manager, from_day=NEXT_MONDAY, to_day=NEXT_MONDAY, user_id=employee.id
+    )
+
+    assert listed(rows) == [(shift.id, "draft")]
+
+
+def test_the_range_includes_both_end_days_by_local_start_date(
+    session: Session, employee: User
+) -> None:
+    _, this_shift = assigned_on(session, employee, THIS_WEEK)
+    assigned_on(session, employee, NEXT_WEEK)
+
+    just_this = service.list_assigned_shifts(
+        session, employee, from_day=THIS_MONDAY, to_day=THIS_MONDAY
+    )
+    day_after = service.list_assigned_shifts(
+        session,
+        employee,
+        from_day=THIS_MONDAY + timedelta(days=1),
+        to_day=THIS_MONDAY + timedelta(days=6),
+    )
+
+    assert listed(just_this) == [(this_shift.id, "published")]
+    assert day_after == []
+
+
+def test_only_the_asked_employees_assignments_are_listed(
+    session: Session, employee: User, other_employee: User
+) -> None:
+    _, mine = assigned_on(session, employee, THIS_WEEK)
+    assigned_on(session, other_employee, THIS_WEEK)
+
+    rows = service.list_assigned_shifts(session, employee, from_day=THIS_MONDAY, to_day=THIS_MONDAY)
+
+    assert listed(rows) == [(mine.id, "published")]
+
+
+def test_an_employee_cannot_list_another_employees_assignments_even_for_a_missing_user(
+    session: Session, employee: User, other_employee: User
+) -> None:
+    for target in (other_employee.id, 987654):
+        with pytest.raises(Forbidden):
+            service.list_assigned_shifts(
+                session, employee, from_day=THIS_MONDAY, to_day=THIS_MONDAY, user_id=target
+            )
+
+
+def test_a_manager_asking_for_a_missing_user_gets_not_found(
+    session: Session, manager: User
+) -> None:
+    with pytest.raises(NotFound) as raised:
+        service.list_assigned_shifts(
+            session, manager, from_day=THIS_MONDAY, to_day=THIS_MONDAY, user_id=987654
+        )
+
+    assert raised.value.code == ErrorCode.user_not_found
+
+
+def test_listing_assignments_rejects_a_range_that_ends_before_it_starts(
+    session: Session, employee: User
+) -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        service.list_assigned_shifts(session, employee, from_day=NEXT_MONDAY, to_day=THIS_MONDAY)
+
+    assert raised.value.code == ErrorCode.validation_error
