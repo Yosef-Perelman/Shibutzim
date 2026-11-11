@@ -87,6 +87,69 @@ def test_who_is_available_is_refused_for_an_employee(session: Session, employee:
     assert outcome.content["error"]["code"] == "forbidden"
 
 
+def shifts_on_monday(session: Session):
+    morning = monday_shift(session, name="Morning")
+    template = make_shift_template(
+        session, name="Evening", weekday=1, start_time=time(15), end_time=time(23)
+    )
+    return morning, make_shift(session, template, week_start=NEXT_WEEK)
+
+
+def test_who_is_available_finds_a_shift_by_day_and_name(
+    session: Session, manager: User, employee: User
+):
+    morning, evening = shifts_on_monday(session)
+    make_availability(session, morning, employee, AvailabilityStatus.available)
+    make_availability(session, evening, employee, AvailabilityStatus.unavailable)
+
+    outcome = run(session, manager, "who_is_available", day=NEXT_MONDAY.isoformat(), shift="morn")
+
+    assert outcome.status == "ok"
+    assert outcome.content["shift"]["id"] == morning.id
+    assert outcome.content["available"] == ["Eli Employee"]
+
+
+def test_who_is_available_by_day_alone_works_when_the_day_has_one_shift(
+    session: Session, manager: User
+):
+    shift = monday_shift(session)
+
+    outcome = run(session, manager, "who_is_available", day=NEXT_MONDAY.isoformat())
+
+    assert outcome.content["shift"]["id"] == shift.id
+
+
+def test_who_is_available_by_day_asks_which_shift_when_there_are_several(
+    session: Session, manager: User
+):
+    shifts_on_monday(session)
+
+    outcome = run(session, manager, "who_is_available", day=NEXT_MONDAY.isoformat())
+
+    assert outcome.status == "error"
+    assert outcome.content["error"]["code"] == "validation_error"
+    assert "Evening, Morning" in outcome.content["error"]["message"]
+
+
+def test_who_is_available_for_a_day_without_a_matching_shift_is_not_found(
+    session: Session, manager: User
+):
+    monday_shift(session)
+
+    for args in ({"day": "2026-03-17"}, {"day": NEXT_MONDAY.isoformat(), "shift": "night"}):
+        outcome = run(session, manager, "who_is_available", **args)
+
+        assert outcome.status == "error"
+        assert outcome.content["error"]["code"] == "shift_not_found"
+
+
+def test_who_is_available_needs_a_shift_id_or_a_day(session: Session, manager: User):
+    outcome = run(session, manager, "who_is_available")
+
+    assert outcome.status == "error"
+    assert outcome.content["error"]["code"] == "validation_error"
+
+
 # --- get_team_hours ---
 
 

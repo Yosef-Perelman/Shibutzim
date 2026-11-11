@@ -91,7 +91,8 @@ def test_the_manager_tools_declare_their_arguments():
     team = registry.get_tool("get_team_hours").definition().parameters
     draft = registry.get_tool("generate_schedule_draft").definition().parameters
 
-    assert set(who["properties"]) == {"shift_id"} and who["required"] == ["shift_id"]
+    assert set(who["properties"]) == {"shift_id", "day", "shift"}
+    assert "required" not in who
     assert set(team["properties"]) == {"from", "to"}
     assert set(draft["properties"]) == {"week_start", "unavailable"}
     assert draft["required"] == ["week_start"]
