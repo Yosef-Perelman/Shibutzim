@@ -2,12 +2,12 @@ import { Container } from '@mantine/core';
 import { observer } from 'mobx-react-lite';
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 
-import { ComingSoon } from '../components/ComingSoon';
 import { LoadingState } from '../components/StateViews';
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { StylePreview } from '../features/design/StylePreview';
 import { AvailabilityForm } from '../features/me/AvailabilityForm';
 import { ScheduleBoard } from '../features/manager/ScheduleBoard';
+import { TeamPay } from '../features/manager/TeamPay';
 import { MyPay } from '../features/me/MyPay';
 import { MyShifts } from '../features/me/MyShifts';
 import { AppShell } from '../features/shell/AppShell';
@@ -55,7 +55,7 @@ export const AppRoutes = observer(function AppRoutes() {
         <Route path="/me/pay" element={<MyPay />} />
         <Route path="/manager" element={<RequireManager />}>
           <Route path="schedule" element={<ScheduleBoard />} />
-          <Route path="pay" element={<ComingSoon title="Team pay" />} />
+          <Route path="pay" element={<TeamPay />} />
         </Route>
       </Route>
       <Route path="*" element={<Fallback />} />

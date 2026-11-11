@@ -85,6 +85,16 @@ export class PayStore {
     }
   }
 
+  /** Closes a drill-down: drops the breakdown and stops reloading it when the month changes. */
+  closePay(): void {
+    this.payRequested = false;
+    this.payUserId = undefined;
+    this.payRequestId += 1; // an answer still on its way is no longer wanted
+    this.pay = null;
+    this.payStatus = 'idle';
+    this.payError = null;
+  }
+
   reloadPay(): Promise<void> {
     return this.loadPay(this.payUserId);
   }
