@@ -45,8 +45,11 @@ def monday_shift(session: Session, *, staff: int = 1, hour: int = 7):
     [
         ("GET", BASE),
         ("POST", f"{BASE}/generate"),
+        ("POST", f"{BASE}/assignments"),
+        ("PATCH", f"{BASE}/assignments/1"),
+        ("DELETE", f"{BASE}/assignments/1"),
     ],
-    ids=["get", "generate"],
+    ids=["get", "generate", "add_assignment", "replace_assignment", "remove_assignment"],
 )
 def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, path: str) -> None:
     response = client.request(method, path, json={} if method in {"POST", "PATCH"} else None)
@@ -62,8 +65,11 @@ def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, p
     ("method", "path"),
     [
         ("POST", f"{BASE}/generate"),
+        ("POST", f"{BASE}/assignments"),
+        ("PATCH", f"{BASE}/assignments/1"),
+        ("DELETE", f"{BASE}/assignments/1"),
     ],
-    ids=["generate"],
+    ids=["generate", "add_assignment", "replace_assignment", "remove_assignment"],
 )
 def test_manager_only_endpoints_return_403_for_an_employee(
     employee_client: TestClient, method: str, path: str
@@ -216,3 +222,181 @@ def test_reading_a_week_without_a_schedule_returns_404(manager_client: TestClien
 
     assert response.status_code == 404
     assert error_code(response) == "schedule_not_found"
+
+
+# --- editing assignments ---
+
+
+def edit_url(assignment_id: int | None = None) -> str:
+    return f"{BASE}/assignments" + (f"/{assignment_id}" if assignment_id else "")
+
+
+def test_add_returns_201_the_assignment_and_no_warnings(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_schedule(session)
+    make_availability(session, shift, employee)
+
+    response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["assignment"] == {
+        "id": body["assignment"]["id"],
+        "shift_id": shift.id,
+        "user_id": employee.id,
+        "user_name": "Eli Employee",
+        "starts_at": "2026-03-16T05:00:00Z",
+        "ends_at": "2026-03-16T13:00:00Z",
+    }
+    assert body["warnings"] == []
+
+
+def test_add_for_an_employee_who_did_not_answer_returns_a_warning(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_schedule(session)
+
+    response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
+
+    assert response.status_code == 201
+    assert [w["code"] for w in response.json()["warnings"]] == ["availability_ignored"]
+    assert "Eli Employee" in response.json()["warnings"][0]["message"]
+
+
+def test_add_of_an_overlapping_shift_returns_409(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    schedule = make_schedule(session)
+    first, second = monday_shift(session, hour=7), monday_shift(session, hour=10)
+    make_assignment(session, schedule, first, employee)
+
+    response = manager_client.post(edit_url(), json={"shift_id": second.id, "user_id": employee.id})
+
+    assert response.status_code == 409
+    assert error_code(response) == "shift_overlap"
+
+
+def test_add_inside_the_minimum_rest_returns_409(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    schedule = make_schedule(session)
+    first, second = monday_shift(session, hour=7), monday_shift(session, hour=15)
+    make_assignment(session, schedule, first, employee)
+
+    response = manager_client.post(edit_url(), json={"shift_id": second.id, "user_id": employee.id})
+
+    assert response.status_code == 409
+    assert error_code(response) == "min_rest_violation"
+
+
+def test_add_twice_returns_409(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    schedule, shift = make_schedule(session), monday_shift(session)
+    make_assignment(session, schedule, shift, employee)
+
+    response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
+
+    assert response.status_code == 409
+    assert error_code(response) == "already_assigned"
+
+
+@pytest.mark.parametrize(
+    ("body", "status", "code"),
+    [
+        ({"shift_id": 999_999, "user_id": "employee"}, 404, "shift_not_found"),
+        ({"shift_id": "shift", "user_id": 999_999}, 404, "user_not_found"),
+        ({"shift_id": "shift", "user_id": "manager"}, 422, "user_not_assignable"),
+        ({"shift_id": "shift"}, 422, "validation_error"),
+        ({"user_id": "employee"}, 422, "validation_error"),
+    ],
+    ids=["unknown_shift", "unknown_user", "manager_user", "missing_user", "missing_shift"],
+)
+def test_add_with_bad_references_returns_the_error(
+    manager_client: TestClient,
+    session: Session,
+    employee: User,
+    manager: User,
+    body: dict,
+    status: int,
+    code: str,
+) -> None:
+    shift = monday_shift(session)
+    make_schedule(session)
+    refs = {"shift": shift.id, "employee": employee.id, "manager": manager.id}
+    body = {key: refs.get(value, value) for key, value in body.items()}
+
+    response = manager_client.post(edit_url(), json=body)
+
+    assert response.status_code == status
+    assert error_code(response) == code
+
+
+def test_add_for_a_week_without_a_schedule_returns_404(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+
+    response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
+
+    assert response.status_code == 404
+    assert error_code(response) == "schedule_not_found"
+
+
+def test_replace_returns_the_changed_assignment(
+    manager_client: TestClient, session: Session, employee: User, other_employee: User
+) -> None:
+    schedule, shift = make_schedule(session), monday_shift(session)
+    assignment = make_assignment(session, schedule, shift, employee)
+    make_availability(session, shift, other_employee)
+
+    response = manager_client.patch(edit_url(assignment.id), json={"user_id": other_employee.id})
+
+    assert response.status_code == 200
+    assert response.json()["assignment"]["id"] == assignment.id
+    assert response.json()["assignment"]["user_id"] == other_employee.id
+    assert response.json()["warnings"] == []
+
+
+def test_replace_of_an_unknown_assignment_returns_404(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    make_schedule(session)
+
+    response = manager_client.patch(edit_url(999_999), json={"user_id": employee.id})
+
+    assert response.status_code == 404
+    assert error_code(response) == "assignment_not_found"
+
+
+def test_replace_with_a_missing_user_returns_422(manager_client: TestClient) -> None:
+    response = manager_client.patch(edit_url(1), json={})
+
+    assert response.status_code == 422
+    assert error_code(response) == "validation_error"
+
+
+def test_remove_returns_204_and_deletes_the_assignment(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    schedule, shift = make_schedule(session), monday_shift(session)
+    assignment = make_assignment(session, schedule, shift, employee)
+
+    response = manager_client.delete(edit_url(assignment.id))
+
+    assert response.status_code == 204
+    assert manager_client.get(BASE).json()["assignments"] == []
+
+
+def test_remove_of_an_unknown_assignment_returns_404(
+    manager_client: TestClient, session: Session
+) -> None:
+    make_schedule(session)
+
+    response = manager_client.delete(edit_url(999_999))
+
+    assert response.status_code == 404
+    assert error_code(response) == "assignment_not_found"
