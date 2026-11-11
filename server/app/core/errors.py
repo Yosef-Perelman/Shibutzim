@@ -16,6 +16,8 @@ class ErrorCode(StrEnum):
     clock_out_before_clock_in = "clock_out_before_clock_in"
     entry_too_long = "entry_too_long"
     invalid_week_start = "invalid_week_start"
+    shift_not_in_week = "shift_not_in_week"
+    user_not_assignable = "user_not_assignable"
     # 401
     invalid_credentials = "invalid_credentials"
     invalid_token = "invalid_token"
@@ -26,10 +28,12 @@ class ErrorCode(StrEnum):
     user_not_found = "user_not_found"
     time_entry_not_found = "time_entry_not_found"
     shift_template_not_found = "shift_template_not_found"
+    shift_not_found = "shift_not_found"
     # 409
     already_clocked_in = "already_clocked_in"
     not_clocked_in = "not_clocked_in"
     time_entry_overlap = "time_entry_overlap"
+    availability_locked = "availability_locked"
     # 500
     internal_error = "internal_error"
 
