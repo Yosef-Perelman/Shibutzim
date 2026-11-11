@@ -1,7 +1,15 @@
 """Every tool, and which of them a role may see (architecture §8: filtered before the model)."""
 
 from app.assistant.llm import ToolDefinition
-from app.assistant.tools import explain_pay, get_my_hours, get_my_shifts, search_policy
+from app.assistant.tools import (
+    explain_pay,
+    generate_schedule_draft,
+    get_my_hours,
+    get_my_shifts,
+    get_team_hours,
+    search_policy,
+    who_is_available,
+)
 from app.assistant.tools.base import Tool
 from app.core.enums import Role
 
@@ -10,6 +18,9 @@ ALL_TOOLS: tuple[Tool, ...] = (
     get_my_hours.TOOL,
     explain_pay.TOOL,
     search_policy.TOOL,
+    who_is_available.TOOL,
+    get_team_hours.TOOL,
+    generate_schedule_draft.TOOL,
 )
 
 

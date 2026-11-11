@@ -2,11 +2,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.assistant.context import ToolContext
+from app.assistant.formatting import shift_fields
 from app.assistant.tools.base import DateRangeArguments, Tool
 from app.config import get_settings
 from app.core.enums import Role
-from app.core.time import weekday_sunday_based
-from app.scheduler.explain import WEEKDAY_NAMES
 from app.services import assignment_service
 from app.services.assignment_service import AssignedShift
 
@@ -20,17 +19,11 @@ def run(context: ToolContext, arguments: DateRangeArguments) -> dict[str, Any]:
 
 
 def describe(row: AssignedShift, zone: ZoneInfo) -> dict[str, Any]:
-    start = row.shift.starts_at.astimezone(zone)
-    end = row.shift.ends_at.astimezone(zone)
-    return {
-        "date": start.date().isoformat(),
-        "weekday": WEEKDAY_NAMES[weekday_sunday_based(start.date())],
-        "name": row.shift.name,
-        "start": f"{start:%H:%M}",
-        "end": f"{end:%H:%M}",
-        "ends_next_day": end.date() > start.date(),
-        "schedule": row.schedule_status.value,
-    }
+    fields = shift_fields(row.shift, zone)
+    ends_next_day = (
+        row.shift.ends_at.astimezone(zone).date() > row.shift.starts_at.astimezone(zone).date()
+    )
+    return {**fields, "ends_next_day": ends_next_day, "schedule": row.schedule_status.value}
 
 
 TOOL = Tool(

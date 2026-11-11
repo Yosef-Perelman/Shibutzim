@@ -24,8 +24,9 @@ UNEXPECTED_MESSAGE = "The tool failed unexpectedly. Tell the user you could not 
 
 @dataclass(frozen=True)
 class ToolOutcome:
-    content: dict[str, Any]
+    content: dict[str, Any]  # what the model sees
     status: Status
+    proposal: dict[str, Any] | None = None  # a write tool's full proposal, for the UI only
 
 
 def call_tool(context: ToolContext, name: str, args: dict[str, Any]) -> ToolOutcome:
@@ -67,7 +68,9 @@ def execute(context: ToolContext, name: str, args: dict[str, Any]) -> ToolOutcom
     except ValidationError as error:
         return failure(ErrorCode.validation_error, describe_problems(error), "error")
     try:
-        return ToolOutcome(tool.run(context, arguments), "ok")
+        content = tool.run(context, arguments)
+        proposal = content.pop("proposal", None) if tool.writes else None
+        return ToolOutcome(content, "ok", proposal)
     except ServiceUnavailable:
         raise
     except DomainError as error:

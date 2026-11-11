@@ -199,7 +199,9 @@ def test_the_model_gets_a_compact_result_without_the_full_proposal(
         "unfilled": ["Monday 07:00 needs 2, only 1 available"],
         "days_off_applied": [],
         "replaces_draft": False,
-        "note": "This is only a proposal. Nothing is saved until the manager confirms it in the app.",
+        "note": (
+            "This is only a proposal. Nothing is saved until the manager confirms it in the app."
+        ),
     }
 
 
@@ -265,7 +267,9 @@ def test_an_unknown_name_is_an_error_listing_the_active_employees(
     assert outcome.status == "error"
     assert outcome.content["error"] == {
         "code": "user_not_assignable",
-        "message": "No active employee is called 'Zed'. Active employees: Dana Other, Eli Employee.",
+        "message": (
+            "No active employee is called 'Zed'. Active employees: Dana Other, Eli Employee."
+        ),
     }
 
 
