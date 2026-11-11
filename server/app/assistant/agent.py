@@ -96,5 +96,5 @@ def render_system_prompt(user: User, today: date) -> str:
 
 
 def label(day: date) -> str:
-    """ "Monday 2026-03-09": the weekday name next to the date, so the model never has to work it out."""
+    """The weekday next to the date, e.g. "Monday 2026-03-09", so the model never works it out."""
     return f"{WEEKDAY_NAMES[weekday_sunday_based(day)]} {day.isoformat()}"
