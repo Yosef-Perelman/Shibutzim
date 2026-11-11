@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.core.enums import Role
-from app.core.errors import Forbidden
+from app.core.errors import ErrorCode, Forbidden, ValidationFailed
 from app.models import User
 from app.services import user_service as service
 from tests.factories import make_user
@@ -73,3 +73,47 @@ def test_list_users_breaks_a_name_tie_by_id(session: Session, manager: User) -> 
     users = service.list_users(session, manager, role=Role.employee)
 
     assert [user.id for user in users] == [first.id, second.id]
+
+
+# --- finding an employee by the name a manager says ---
+
+
+def test_find_active_employee_is_for_managers_only(session: Session, employee: User) -> None:
+    with pytest.raises(Forbidden):
+        service.find_active_employee(session, employee, "Eli")
+
+
+def test_find_active_employee_matches_a_first_name_in_any_case(
+    session: Session, manager: User, employee: User
+) -> None:
+    assert service.find_active_employee(session, manager, "  eLi ") == employee
+
+
+def test_find_active_employee_prefers_the_full_name(session: Session, manager: User) -> None:
+    make_user(session, name="Eli Adler")
+    second = make_user(session, name="Eli Second")
+
+    assert service.find_active_employee(session, manager, "eli second") == second
+
+
+def test_find_active_employee_ignores_managers_and_deactivated_people(
+    session: Session, manager: User
+) -> None:
+    make_user(session, name="Gone Person", is_active=False)
+
+    for name in ("Mia", "Gone"):
+        with pytest.raises(ValidationFailed) as raised:
+            service.find_active_employee(session, manager, name)
+        assert raised.value.code == ErrorCode.user_not_assignable
+
+
+def test_find_active_employee_lists_the_candidates_when_the_name_is_ambiguous(
+    session: Session, manager: User
+) -> None:
+    make_user(session, name="Dana Levi")
+    make_user(session, name="Dana Katz")
+
+    with pytest.raises(ValidationFailed) as raised:
+        service.find_active_employee(session, manager, "Dana")
+
+    assert "Dana Katz, Dana Levi" in raised.value.message

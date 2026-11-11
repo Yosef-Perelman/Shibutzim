@@ -10,8 +10,7 @@ from app.assistant.formatting import shift_fields
 from app.assistant.tools.base import Tool
 from app.config import get_settings
 from app.core.enums import Role, ScheduleStatus
-from app.core.errors import Conflict, ErrorCode, NotFound, ValidationFailed
-from app.models import User
+from app.core.errors import Conflict, ErrorCode, NotFound
 from app.services import schedule_service, user_service
 from app.services.schedule_service import DayOff, Proposal
 
@@ -33,8 +32,10 @@ def run(context: ToolContext, arguments: GenerateScheduleDraftArguments) -> dict
     existing = current_status(context, week)
     if existing is ScheduleStatus.published:
         raise Conflict(ErrorCode.schedule_published, f"The week of {week} is already published.")
-    employees = user_service.list_users(session, manager, role=Role.employee, is_active=True)
-    days_off = [(find_employee(item.name, employees), item.day) for item in arguments.unavailable]
+    days_off = [
+        (user_service.find_active_employee(session, manager, item.name), item.day)
+        for item in arguments.unavailable
+    ]
     proposal = schedule_service.propose_schedule(
         session, manager, week, unavailable=[DayOff(user.id, day) for user, day in days_off]
     )
@@ -75,26 +76,6 @@ def current_status(context: ToolContext, week: date) -> ScheduleStatus | None:
     except NotFound:
         return None
     return view.schedule.status
-
-
-def find_employee(name: str, employees: list[User]) -> User:
-    """Match a name as a manager says it: the full name, else a first or last name, any case."""
-    wanted = name.strip().casefold()
-    matches = [user for user in employees if user.name.casefold() == wanted]
-    matches = matches or [user for user in employees if wanted in user.name.casefold().split()]
-    if len(matches) == 1:
-        return matches[0]
-    if matches:
-        names = ", ".join(sorted(user.name for user in matches))
-        raise ValidationFailed(
-            ErrorCode.validation_error,
-            f"Several employees match '{name}': {names}. Ask the manager which one.",
-        )
-    names = ", ".join(user.name for user in employees)
-    raise ValidationFailed(
-        ErrorCode.user_not_assignable,
-        f"No active employee is called '{name}'. Active employees: {names}.",
-    )
 
 
 def summarize(proposal: Proposal) -> str:
