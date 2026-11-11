@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.assistant.llm import LLM
 from app.models import User
 
+__all__ = ["ToolContext", "User"]  # User is re-exported so the agent needs no model import
+
 
 @dataclass(frozen=True)
 class ToolContext:

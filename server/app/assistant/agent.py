@@ -10,14 +10,13 @@ from datetime import date, timedelta
 from string import Template
 from typing import Any
 
-from app.assistant.context import ToolContext
+from app.assistant.context import ToolContext, User
 from app.assistant.dispatch import call_tool
 from app.assistant.llm import Message, ToolResult
 from app.assistant.prompts import load_prompt
 from app.assistant.tools import registry
 from app.core.enums import Role
 from app.core.time import DAYS_PER_WEEK, week_start, weekday_sunday_based
-from app.models import User
 from app.scheduler.explain import WEEKDAY_NAMES
 
 EMPTY_ANSWER = "Sorry, I could not come up with an answer. Please try asking in another way."
