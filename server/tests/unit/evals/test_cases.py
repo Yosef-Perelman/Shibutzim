@@ -2,9 +2,8 @@
 
 from collections import Counter
 
-from evals.cases import CASES
-
 from app.assistant.tools import registry
+from evals.cases import CASES
 
 
 def test_there_are_fifteen_cases_with_unique_ids():

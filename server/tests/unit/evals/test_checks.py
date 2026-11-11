@@ -1,10 +1,10 @@
 """The eval checkers: pure functions that compare one assistant run with what its case expects."""
 
 import pytest
-from evals.checks import appears, check_case, resolve_path
-from evals.types import EvalCase, Fact
 
 from app.assistant.agent import AgentReply, ToolCallInfo
+from evals.checks import appears, check_case, resolve_path
+from evals.types import EvalCase, Fact
 
 
 def reply(text="ok", tools=(), citations=(), proposal=None) -> AgentReply:

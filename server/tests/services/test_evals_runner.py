@@ -3,14 +3,14 @@
 from datetime import date
 
 import pytest
-from evals.budget import BudgetExceeded
-from evals.runner import CaseResult, run_cases
-from evals.types import EvalCase, Fact
 from sqlalchemy.orm import Session
 
 from app.assistant.llm import FakeLLM, call_tool, say
 from app.core.errors import ServiceUnavailable
 from app.models import User
+from evals.budget import BudgetExceeded
+from evals.runner import CaseResult, run_cases
+from evals.types import EvalCase, Fact
 
 TODAY = date(2026, 3, 9)
 HOURS = {"from": "2026-03-01", "to": "2026-03-31"}

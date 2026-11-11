@@ -1,9 +1,9 @@
 """The budget wrapper that keeps eval runs inside the provider's usage limits."""
 
 import pytest
-from evals.budget import BudgetedLLM, BudgetExceeded
 
 from app.assistant.llm import FakeLLM, Message, say
+from evals.budget import BudgetedLLM, BudgetExceeded
 
 
 class Clock:
