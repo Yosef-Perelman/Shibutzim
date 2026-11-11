@@ -7,6 +7,7 @@ import { LoadingState } from '../components/StateViews';
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { StylePreview } from '../features/design/StylePreview';
 import { AvailabilityForm } from '../features/me/AvailabilityForm';
+import { ScheduleBoard } from '../features/manager/ScheduleBoard';
 import { MyPay } from '../features/me/MyPay';
 import { MyShifts } from '../features/me/MyShifts';
 import { AppShell } from '../features/shell/AppShell';
@@ -53,7 +54,7 @@ export const AppRoutes = observer(function AppRoutes() {
         <Route path="/me/availability" element={<AvailabilityForm />} />
         <Route path="/me/pay" element={<MyPay />} />
         <Route path="/manager" element={<RequireManager />}>
-          <Route path="schedule" element={<ComingSoon title="Schedule" />} />
+          <Route path="schedule" element={<ScheduleBoard />} />
           <Route path="pay" element={<ComingSoon title="Team pay" />} />
         </Route>
       </Route>

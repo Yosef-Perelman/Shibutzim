@@ -1,9 +1,11 @@
 import { MantineProvider } from '@mantine/core';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { Api } from '../api';
+import { ApiError } from '../api/apiClient';
+import { makeFakeApi } from '../test/renderWithStores';
 import { StoreProvider } from '../stores/StoreContext';
 import { RootStore } from '../stores/RootStore';
 import { createMemoryTokenStorage } from '../stores/tokenStorage';
@@ -12,7 +14,23 @@ import { theme } from '../theme';
 import { AppRoutes } from './AppRoutes';
 
 async function renderAt(path: string, user: ReturnType<typeof makeUser> | null) {
-  const api = { auth: { login: vi.fn(), me: vi.fn() } };
+  // A complete fake, so a screen that loads data on mount gets sensible empty answers.
+  const api = makeFakeApi();
+  api.schedules.get.mockRejectedValue(new ApiError(404, 'schedule_not_found', 'None.'));
+  api.shifts.list.mockResolvedValue([]);
+  api.users.list.mockResolvedValue([]);
+  api.timeEntries.list.mockResolvedValue([]);
+  api.availabilities.list.mockResolvedValue([]);
+  api.pay.get.mockResolvedValue({
+    user_id: 1,
+    from: '',
+    to: '',
+    days: [],
+    seconds: 0,
+    hours: '0.00',
+    amount: '0.00',
+    open_entries: 0,
+  });
   const store = new RootStore({ api: api as unknown as Api, storage: createMemoryTokenStorage() });
   if (user) {
     api.auth.login.mockResolvedValue(makeToken(user));

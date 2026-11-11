@@ -55,7 +55,7 @@ export async function renderWithStores(ui: ReactElement, options: RenderOptions 
   await store.auth.login(user.email, 'pw');
   await store.auth.restore();
   const view = render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={theme} env="test">
       <StoreProvider store={store}>
         <MemoryRouter initialEntries={[options.path ?? '/']}>{ui}</MemoryRouter>
       </StoreProvider>
