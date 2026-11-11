@@ -263,12 +263,13 @@ Approved on 2026-11-11 by Yosef ("implement plan 003"). All eleven open question
 Open question 1 is resolved: four screenshots (`image.png` to `image4.png`) are now in `design/references/`, so
 step 1 may start. The style-preview gate in step 4 still applies: no screen is written before Yosef approves it.
 
+**Style preview approved by Yosef on 2026-11-11** (`/design`, no changes requested). Steps 5 onward may start.
+
 ## What changed vs. plan
 
 *(Running notes while the plan is in progress; the final table is written when it is closed.)*
 
-**Progress.** Steps 1 to 4 are committed. **Gate (step 4): waiting for Yosef to review `/design` at 375 px and
-1280 px.** No step after 4 starts before the approval is recorded under "Amendment on approval".
+**Progress.** Steps 1 to 4 are committed. **Gate (step 4): passed on 2026-11-11**, see "Amendment on approval".
 
 **Deviations so far**
 
