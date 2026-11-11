@@ -4,15 +4,20 @@ from fastapi import APIRouter
 
 from app.deps import CurrentUser, SessionDep
 from app.schemas.schedule import (
+    AssignmentCreate,
+    AssignmentEditOut,
     AssignmentOut,
+    AssignmentUpdate,
     ReasonOut,
     ScheduleGenerateOut,
     ScheduleOut,
     ScoreOut,
     ShiftCoverageOut,
     UnfilledSlotOut,
+    WarningOut,
 )
-from app.services import schedule_service
+from app.services import assignment_service, schedule_service
+from app.services.assignment_service import AssignmentEdit
 from app.services.schedule_service import GeneratedSchedule, ScheduleView
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
@@ -30,7 +35,52 @@ def generate_schedule(
     return generate_out(schedule_service.generate_schedule(session, user, week_start))
 
 
+@router.post("/{week_start}/assignments", status_code=201)
+def add_assignment(
+    week_start: date, body: AssignmentCreate, user: CurrentUser, session: SessionDep
+) -> AssignmentEditOut:
+    edit = assignment_service.add_assignment(
+        session, user, week_start, shift_id=body.shift_id, user_id=body.user_id
+    )
+    return edit_out(edit)
+
+
+@router.patch("/{week_start}/assignments/{assignment_id}")
+def replace_assignment(
+    week_start: date,
+    assignment_id: int,
+    body: AssignmentUpdate,
+    user: CurrentUser,
+    session: SessionDep,
+) -> AssignmentEditOut:
+    edit = assignment_service.replace_assignment(
+        session, user, week_start, assignment_id, user_id=body.user_id
+    )
+    return edit_out(edit)
+
+
+@router.delete("/{week_start}/assignments/{assignment_id}", status_code=204)
+def remove_assignment(
+    week_start: date, assignment_id: int, user: CurrentUser, session: SessionDep
+) -> None:
+    assignment_service.remove_assignment(session, user, week_start, assignment_id)
+
+
 # --- mapping from service results to response schemas ---
+
+
+def edit_out(edit: AssignmentEdit) -> AssignmentEditOut:
+    return AssignmentEditOut(
+        assignment=AssignmentOut(
+            id=edit.assignment.id,
+            shift_id=edit.shift.id,
+            user_id=edit.user.id,
+            user_name=edit.user.name,
+            starts_at=edit.shift.starts_at,
+            ends_at=edit.shift.ends_at,
+        ),
+        warnings=[WarningOut(code=w.code, message=w.message) for w in edit.warnings],
+    )
 
 
 def schedule_out(view: ScheduleView) -> ScheduleOut:

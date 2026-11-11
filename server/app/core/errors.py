@@ -31,12 +31,16 @@ class ErrorCode(StrEnum):
     shift_template_not_found = "shift_template_not_found"
     shift_not_found = "shift_not_found"
     schedule_not_found = "schedule_not_found"
+    assignment_not_found = "assignment_not_found"
     # 409
     already_clocked_in = "already_clocked_in"
     not_clocked_in = "not_clocked_in"
     time_entry_overlap = "time_entry_overlap"
     availability_locked = "availability_locked"
     schedule_published = "schedule_published"
+    already_assigned = "already_assigned"
+    shift_overlap = "shift_overlap"
+    min_rest_violation = "min_rest_violation"
     # 500
     internal_error = "internal_error"
 

@@ -67,3 +67,27 @@ class ScheduleGenerateOut(BaseModel):
     score: ScoreOut
     complete: bool  # False when the search budget ran out before the search finished
     steps: int
+
+
+class AssignmentCreate(BaseModel):
+    shift_id: int
+    user_id: int
+
+
+class AssignmentUpdate(BaseModel):
+    """Give the assignment to another employee."""
+
+    user_id: int
+
+
+class WarningOut(BaseModel):
+    """A rule the edit bent; the edit was saved. Codes: availability_ignored, max_shifts_exceeded,
+    shift_overstaffed."""
+
+    code: str
+    message: str
+
+
+class AssignmentEditOut(BaseModel):
+    assignment: AssignmentOut
+    warnings: list[WarningOut]

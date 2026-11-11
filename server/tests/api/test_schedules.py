@@ -62,21 +62,19 @@ def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, p
 
 
 @pytest.mark.parametrize(
-    ("method", "path"),
+    ("method", "path", "body"),
     [
-        ("POST", f"{BASE}/generate"),
-        ("POST", f"{BASE}/assignments"),
-        ("PATCH", f"{BASE}/assignments/1"),
-        ("DELETE", f"{BASE}/assignments/1"),
+        ("POST", f"{BASE}/generate", None),
+        ("POST", f"{BASE}/assignments", {"shift_id": 1, "user_id": 1}),
+        ("PATCH", f"{BASE}/assignments/1", {"user_id": 1}),
+        ("DELETE", f"{BASE}/assignments/1", None),
     ],
     ids=["generate", "add_assignment", "replace_assignment", "remove_assignment"],
 )
 def test_manager_only_endpoints_return_403_for_an_employee(
-    employee_client: TestClient, method: str, path: str
+    employee_client: TestClient, method: str, path: str, body: dict | None
 ) -> None:
-    response = employee_client.request(
-        method, path, json={} if method in {"POST", "PATCH"} else None
-    )
+    response = employee_client.request(method, path, json=body)
 
     assert response.status_code == 403
     assert error_code(response) == "forbidden"
