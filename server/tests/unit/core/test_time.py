@@ -4,7 +4,7 @@ Facts used below (verified with zoneinfo): Israel is UTC+2 in winter and UTC+3 i
 clocks move forward on Friday 2026-03-27 (a 23-hour day) and back on Sunday 2026-10-25 (25 hours).
 """
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -13,6 +13,8 @@ from app.core.time import (
     day_bounds,
     duration_seconds,
     ensure_aware,
+    local_to_utc,
+    shift_bounds,
     week_start,
     weekday_sunday_based,
     work_day,
@@ -131,3 +133,65 @@ def test_ensure_aware_returns_aware_values_and_rejects_naive_ones() -> None:
     assert ensure_aware(aware) is aware
     with pytest.raises(ValueError, match="aware"):
         ensure_aware(datetime(2026, 5, 1, 8, 0))  # noqa: DTZ001 – the naive value is the point
+
+
+# --- local_to_utc and shift_bounds ---
+
+
+@pytest.mark.parametrize(
+    ("day", "at", "expected_utc"),
+    [
+        (date(2026, 1, 15), time(7, 0), datetime(2026, 1, 15, 5, 0, tzinfo=UTC)),  # winter, UTC+2
+        (date(2026, 7, 15), time(7, 0), datetime(2026, 7, 15, 4, 0, tzinfo=UTC)),  # summer, UTC+3
+        (date(2026, 1, 15), time(0, 0), datetime(2026, 1, 14, 22, 0, tzinfo=UTC)),  # local midnight
+    ],
+    ids=["winter", "summer", "local_midnight_is_the_previous_utc_day"],
+)
+def test_local_to_utc_applies_the_zone_offset_of_that_day(
+    day: date, at: time, expected_utc: datetime
+) -> None:
+    assert local_to_utc(day, at, TZ) == expected_utc
+
+
+def test_local_to_utc_returns_an_aware_utc_datetime() -> None:
+    result = local_to_utc(date(2026, 1, 15), time(7, 0), TZ)
+
+    assert result.utcoffset() == timedelta(0)
+
+
+def test_shift_bounds_of_a_day_shift_stay_on_one_day() -> None:
+    starts_at, ends_at = shift_bounds(date(2026, 1, 15), time(7, 0), time(15, 0), TZ)
+
+    assert starts_at == datetime(2026, 1, 15, 5, 0, tzinfo=UTC)
+    assert ends_at == datetime(2026, 1, 15, 13, 0, tzinfo=UTC)
+
+
+def test_shift_bounds_with_an_end_before_the_start_end_the_next_day() -> None:
+    starts_at, ends_at = shift_bounds(date(2026, 1, 15), time(23, 0), time(7, 0), TZ)
+
+    assert starts_at == datetime(2026, 1, 15, 21, 0, tzinfo=UTC)
+    assert ends_at == datetime(2026, 1, 16, 5, 0, tzinfo=UTC)
+
+
+def test_shift_bounds_with_an_end_equal_to_the_start_last_24_hours() -> None:
+    starts_at, ends_at = shift_bounds(date(2026, 1, 15), time(7, 0), time(7, 0), TZ)
+
+    assert ends_at - starts_at == timedelta(hours=24)
+
+
+def test_shift_bounds_across_the_spring_forward_night_last_7_real_hours() -> None:
+    # Night of Thu 2026-03-26 23:00 to Fri 03-27 07:00: clocks jump 02:00 -> 03:00 in between.
+    starts_at, ends_at = shift_bounds(date(2026, 3, 26), time(23, 0), time(7, 0), TZ)
+
+    assert starts_at == datetime(2026, 3, 26, 21, 0, tzinfo=UTC)
+    assert ends_at == datetime(2026, 3, 27, 4, 0, tzinfo=UTC)
+    assert ends_at - starts_at == timedelta(hours=7)
+
+
+def test_shift_bounds_across_the_fall_back_night_last_9_real_hours() -> None:
+    # Night of Sat 2026-10-24 23:00 to Sun 10-25 07:00: clocks fall back 02:00 -> 01:00.
+    starts_at, ends_at = shift_bounds(date(2026, 10, 24), time(23, 0), time(7, 0), TZ)
+
+    assert starts_at == datetime(2026, 10, 24, 20, 0, tzinfo=UTC)
+    assert ends_at == datetime(2026, 10, 25, 5, 0, tzinfo=UTC)
+    assert ends_at - starts_at == timedelta(hours=9)

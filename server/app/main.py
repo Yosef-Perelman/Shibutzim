@@ -8,7 +8,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, pay, time_entries
+from app.api import (
+    auth,
+    availabilities,
+    pay,
+    schedules,
+    shift_templates,
+    shifts,
+    time_entries,
+)
 from app.config import get_settings
 from app.core.errors import DomainError, ErrorCode, Unauthorized, error_body
 
@@ -38,6 +46,10 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(time_entries.router)
     application.include_router(pay.router)
+    application.include_router(shift_templates.router)
+    application.include_router(shifts.router)
+    application.include_router(availabilities.router)
+    application.include_router(schedules.router)
     return application
 
 

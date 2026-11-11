@@ -42,25 +42,35 @@ mapping code and one vocabulary for people and agents.
 
 | Term | Meaning | Code · DB · API |
 |---|---|---|
-| **Shift template** | recurring slot: weekday, start, end, required staff | `ShiftTemplate` · `shift_templates` · `/api/shift-templates` |
+| **Shift template** | recurring slot: weekday, start, end, required staff; an end at or before the start ends the next day; deactivated (`is_active = false`), never deleted; editing it never changes shifts already generated | `ShiftTemplate` · `shift_templates` · `GET`, `POST`, `PATCH /api/shift-templates` (managers) |
 | **Required staff** | how many employees a shift needs | `required_staff` |
 | **Week** | scheduling week, Sunday to Saturday, identified by its Sunday | `week_start` (date) |
-| **Shift** | concrete slot in a specific week, generated from a template | `Shift` · `shifts` · `/api/shifts` |
-| **Availability** | an employee's answer for one shift | `Availability` · `availabilities` · `/api/availabilities` |
+| **Shift** | concrete slot in a specific week, generated from a template; snapshots the template's times and `required_staff` | `Shift` · `shifts` · `GET /api/shifts?week_start=` |
+| **Shift generation** | create the week's missing shifts from the active templates; running it again adds only what is missing | `POST /api/shifts/generate` (managers) · `shift_service.generate_shifts` |
+| **Availability** | an employee's answer for one shift | `Availability` · `availabilities` · `GET`, `PUT /api/availabilities` |
+| **Availability lock** | employees can no longer answer for a week once a schedule exists for it or the week is over; managers never are locked | `availability_locked` |
 | **Availability status** | `available` \| `preferred` \| `unavailable`; a missing answer counts as `unavailable` | `AvailabilityStatus` enum · `availabilities.status` |
 | **Schedule** | all assignments of one week, with a status | `Schedule` · `schedules` · `/api/schedules/{week_start}` |
 | **Schedule status** | `draft` (manager only) \| `published` (visible to employees) | `ScheduleStatus` enum · `schedules.status` |
 | **Assignment** | employee X is planned for shift Y | `Assignment` · `assignments` |
-| **Generate** | run the solver for a week and store the result as the draft | `POST /api/schedules/{week_start}/generate` |
+| **Generate** | run the solver for a week and store the result as the draft, replacing the current draft; never replaces a published schedule | `POST /api/schedules/{week_start}/generate` · `schedule_service.generate_schedule` |
+| **Dry run (proposal)** | run the solver for a week without saving anything; used by the assistant's write tool and by `debug-schedule`, with optional rules and trace | `schedule_service.propose_schedule` · `Proposal` |
+| **Assignment edit** | a manager adds, replaces (the "swap") or removes one assignment of a draft or published schedule; overlap and minimum rest are rejected, the rest warns | `POST .../assignments`, `PATCH`, `DELETE .../assignments/{id}` · `assignment_service` |
+| **Edit warning** | a rule an assignment edit bent but did not block: `availability_ignored`, `max_shifts_exceeded`, `shift_overstaffed` | `EditWarning` · `warnings` in the response |
 | **Publish** | mark a schedule `published` | `POST /api/schedules/{week_start}/publish` |
-| **Solver** | the pure scheduling algorithm | `scheduler.solve(shifts, employees, availabilities, rules)` |
+| **Solver** | the pure scheduling algorithm: backtracking search with forward checking for coverage, then a hill-climbing polish for the soft constraints | `scheduler.solve(shifts, employees, availabilities, rules, trace=False)` |
+| **Search budget** | the number of search nodes the solver may use (`max_steps`), not a time, so a solve is reproducible; the best result found is returned and `complete` says whether the search finished | `SchedulingRules.max_steps` · `ScheduleResult.complete` |
 | **Hard constraint** | a rule the solver never violates (availability, required staff, no overlap, minimum rest, max shifts per week) | `scheduler/constraints.py` |
 | **Soft constraint** | a preference the solver scores (fair hours, preferred shifts) | `scheduler/scoring.py` |
-| **Minimum rest** | required gap between two shifts of one employee; default 8 hours | `SchedulingRules.min_rest_hours` |
+| **Minimum rest** | required gap between the end of one shift and the start of the next of one employee, measured in real elapsed time; default 8 hours. v1 checks one week at a time, so rest across the Saturday-Sunday boundary is not checked | `SchedulingRules.min_rest_hours` · `min_rest`, `min_rest_violation` |
 | **Max shifts per week** | per-employee cap; default 5 | `SchedulingRules.max_shifts_per_week` |
-| **Schedule result** | solver output: assignments, score, unfilled slots with reasons | `ScheduleResult` |
-| **Unfilled slot** | a required position on a shift the solver could not staff, with the reason | `UnfilledSlot` |
-| **Trace (explain) mode** | solver option that records which constraint eliminated which candidate for which slot | `solve(..., trace=True)` → `ScheduleResult.trace` |
+| **Scheduling rules** | all configuration the solver needs: minimum rest, max shifts per week, search budget; from `SCHEDULER_*` environment variables | `SchedulingRules` · `Settings.scheduling_rules` |
+| **Schedule result** | solver output: assignments, score, unfilled slots with reasons, steps used | `ScheduleResult` |
+| **Score** | the solver's objective: positions filled first, then `preferred_count × 120 − hours spread` (spread in minutes between the most and least hours among employees who answered) | `Score` · `scoring.PREFERRED_WEIGHT` |
+| **Unfilled slot** | the missing positions of one shift (`required` minus `assigned`), with why each other employee could not take it | `UnfilledSlot` · `unfilled` in the generate response |
+| **Exclusion** | one employee excluded from one shift by one hard constraint (`availability`, `overlap`, `min_rest`, `max_shifts`), naming the conflicting shift when there is one | `Exclusion` · `Constraint` |
+| **Explanation** | the sentence for an unfilled slot, e.g. "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest" | `scheduler.explain.explain` · `sentence` |
+| **Trace (explain) mode** | solver option that records every placement, backtrack and candidate eliminated by forward checking (capped at 20 000 events) | `solve(..., trace=True)` → `ScheduleResult.trace` of `TraceEvent` |
 
 ### Time and pay
 

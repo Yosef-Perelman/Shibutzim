@@ -97,7 +97,7 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 | `/new-plan` | skill | drafting the next plan from the roadmap |
 | `/new-endpoint` | skill | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
 | `/add-pay-rule` | skill | adding a pay rule with its five-case matrix; `dry run` lists the work and stops |
-| `/debug-schedule` | skill | *(after plan 002)* explaining why the solver couldn't fill a week |
+| `/debug-schedule` | skill | explaining why the solver couldn't fill a week (runs `scripts/debug_schedule.py`, read-only) |
 
 ## Common commands
 
@@ -116,6 +116,7 @@ Server commands run from `server/`; `docker compose` runs from the repository ro
 | Run the API | `uv run fastapi dev app/main.py` (docs at `/docs`) |
 | Tests | `uv run pytest -q` |
 | Pay matrix, by name | `uv run pytest tests/unit/pay -v` (without `-q`, which cancels `-v`) |
+| Scheduler matrix, by name | `uv run pytest tests/unit/scheduler -v` |
 | Lint and format | `uv run ruff check --fix . && uv run ruff format .` |
 | Client dev server | *(plan 003)* `cd client && npm run dev` |
 | Assistant evals | *(plan 004)* `uv run python -m evals.run` |

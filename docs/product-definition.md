@@ -164,7 +164,8 @@ Acceptance criteria:
 - **Hard constraints** (never violated by the solver): availability, `required_staff`, no overlap, minimum rest
   (default 8h), max 5 shifts per employee per week.
 - **Soft constraints** (optimized): fair distribution of hours, `preferred` shifts honored.
-- The solver has a time limit and returns the best schedule found, with an explanation of what could not be filled.
+- The solver has a search budget (a count of search steps, so results are reproducible) and returns the best schedule
+  found, with an explanation of what could not be filled.
 
 ### 6.3 Time conventions
 

@@ -42,6 +42,22 @@ def day_bounds(day: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
     return start.astimezone(UTC), end.astimezone(UTC)
 
 
+def local_to_utc(day: date, at: time, tz: ZoneInfo) -> datetime:
+    """The UTC instant of wall-clock time `at` on local date `day` in `tz`."""
+    return datetime.combine(day, at, tzinfo=tz).astimezone(UTC)
+
+
+def shift_bounds(
+    day: date, start_time: time, end_time: time, tz: ZoneInfo
+) -> tuple[datetime, datetime]:
+    """UTC start and end of a shift that starts on local `day`.
+
+    An end time at or before the start time means the shift ends the next day (architecture §5).
+    """
+    end_day = day + timedelta(days=1) if end_time <= start_time else day
+    return local_to_utc(day, start_time, tz), local_to_utc(end_day, end_time, tz)
+
+
 def duration_seconds(start: datetime, end: datetime) -> int:
     """Elapsed seconds between two instants, measured in UTC so a DST change cannot distort it."""
     delta = ensure_aware(end).astimezone(UTC) - ensure_aware(start).astimezone(UTC)

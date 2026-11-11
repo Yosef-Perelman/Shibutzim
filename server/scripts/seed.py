@@ -3,10 +3,12 @@
     cd server && uv run python scripts/seed.py
 
 Creates one manager and five employees with different hourly rates (all with the password in
-`SEED_PASSWORD`), shift templates, shifts for the current and next week, next week's availability
-and time entries for the previous and current month: standard days, overtime days, a split shift
-and a shift crossing midnight, plus one manual correction by the manager. Every record is looked up
-by its natural key before it is inserted, and existing users are never changed.
+`SEED_PASSWORD`), shift templates, shifts for the current and next week, availability for both
+weeks, a published schedule for the current week made by the real solver (next week is left
+unscheduled so the demo can click Generate), and time entries for the previous and current month:
+standard days, overtime days, a split shift and a shift crossing midnight, plus one manual
+correction by the manager. Every record is looked up by its natural key before it is inserted,
+and existing users and schedules are never changed.
 """
 
 import sys
@@ -25,9 +27,11 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.core.enums import AvailabilityStatus, Role, TimeEntrySource  # noqa: E402
 from app.core.security import DEFAULT_BCRYPT_ROUNDS, hash_password  # noqa: E402
-from app.core.time import week_start, weekday_sunday_based  # noqa: E402
+from app.core.time import shift_bounds, week_start, weekday_sunday_based  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.models import Availability, Shift, ShiftTemplate, TimeEntry, User  # noqa: E402
+from app.repositories import schedule_repository  # noqa: E402
+from app.services import schedule_service  # noqa: E402
 
 EMAIL_DOMAIN = "shibutzim.example"
 MANAGER = ("Dana Levi", Decimal("70.00"))
@@ -105,7 +109,9 @@ def seed_all(session: Session, *, now: datetime, rounds: int = DEFAULT_BCRYPT_RO
         week: [seed_shift(session, report, template, week) for template in templates]
         for week in (this_week, this_week + timedelta(days=7))
     }
-    seed_availability(session, report, employees, shifts_by_week[this_week + timedelta(days=7)])
+    for week_shifts in shifts_by_week.values():
+        seed_availability(session, report, employees, week_shifts)
+    seed_schedule(session, report, manager, this_week, now=now)
     seed_time_entries(session, report, manager, employees, today=today, now=now)
 
     session.commit()
@@ -170,12 +176,14 @@ def seed_shift(session: Session, report: SeedReport, template: ShiftTemplate, we
     report.record("shifts", shift is None)
     if shift is None:
         day = week + timedelta(days=template.weekday)
-        end_day = day + timedelta(days=1) if template.end_time <= template.start_time else day
+        starts_at, ends_at = shift_bounds(
+            day, template.start_time, template.end_time, get_settings().tz
+        )
         shift = Shift(
             template_id=template.id,
             week_start=week,
-            starts_at=local_to_utc(day, template.start_time),
-            ends_at=local_to_utc(end_day, template.end_time),
+            starts_at=starts_at,
+            ends_at=ends_at,
             required_staff=template.required_staff,
         )
         session.add(shift)
@@ -200,6 +208,23 @@ def seed_availability(
             if existing is None:
                 session.add(Availability(shift_id=shift.id, user_id=employee.id, status=status))
     session.flush()
+
+
+# --- schedule ---
+
+
+def seed_schedule(
+    session: Session, report: SeedReport, manager: User, week: date, *, now: datetime
+) -> None:
+    """Publish the solver's schedule for `week`, unless the week already has a schedule."""
+    exists = schedule_repository.get_by_week(session, week) is not None
+    report.record("schedules", not exists)
+    if exists:
+        return
+    generated = schedule_service.generate_schedule(session, manager, week)
+    schedule_service.publish_schedule(session, manager, week, now=now)
+    for _ in generated.view.assignments:
+        report.record("assignments", True)
 
 
 # --- time entries ---
@@ -266,18 +291,12 @@ def work_segments(
 
 
 def day_segment(day: date, start: str, end: str) -> tuple[datetime, datetime]:
-    start_time, end_time = parse_hhmm(start), parse_hhmm(end)
-    end_day = day + timedelta(days=1) if end_time <= start_time else day
-    return local_to_utc(day, start_time), local_to_utc(end_day, end_time)
+    return shift_bounds(day, parse_hhmm(start), parse_hhmm(end), get_settings().tz)
 
 
 def parse_hhmm(value: str) -> time:
     hour, minute = value.split(":")
     return time(int(hour), int(minute))
-
-
-def local_to_utc(day: date, at: time) -> datetime:
-    return datetime.combine(day, at, tzinfo=get_settings().tz).astimezone(UTC)
 
 
 # --- entry point ---

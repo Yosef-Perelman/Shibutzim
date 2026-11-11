@@ -54,7 +54,8 @@ possible.
 | `client` | an unauthenticated API client (clock frozen at `NOW`, session shared with the test) |
 | `manager_client`, `employee_client`, `other_employee_client` | API clients authenticated as that user |
 | `manager`, `employee`, `other_employee` | persisted users (`Mia Manager`, `Eli Employee`, `Dana Other`) |
-| `make_user`, `make_time_entry`, `auth_headers`, `NOW` | factories and the frozen "current time" |
+| `make_user`, `make_time_entry`, `make_shift_template`, `make_shift`, `make_availability`, `make_schedule`, `make_assignment`, `auth_headers` | factories |
+| `NOW`, `THIS_WEEK`, `NEXT_WEEK` | the frozen "current time" (Monday 2026-03-09 12:00 UTC) and the Sundays of its week and the next |
 
 The suite fails fast with "Database not reachable – run `docker compose up -d db`" when Postgres is down, and refuses
 to run against any database whose name does not end in `_test`.
@@ -64,4 +65,5 @@ to run against any database whose name does not end in `_test`.
 ```bash
 cd server && uv run pytest -q          # everything
 cd server && uv run pytest -q tests/unit/pay
+cd server && uv run pytest tests/unit/scheduler -v
 ```

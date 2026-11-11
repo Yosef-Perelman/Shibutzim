@@ -8,6 +8,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.pay import PayRules
+from app.scheduler import SchedulingRules
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -28,11 +29,23 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     timezone: str = "Asia/Jerusalem"
     seed_password: str = "shibutzim-demo"  # shared by every seeded demo user (scripts/seed.py)
+    scheduler_min_rest_hours: float = Field(default=8, ge=0)
+    scheduler_max_shifts_per_week: int = Field(default=5, ge=1)
+    scheduler_max_steps: int = Field(default=200_000, ge=1)
 
     @property
     def pay_rules(self) -> PayRules:
         """The pay rules in force (architecture §5). v1 uses the product defaults."""
         return PayRules.default()
+
+    @property
+    def scheduling_rules(self) -> SchedulingRules:
+        """The solver's hard-constraint limits and search budget (product-definition §6.2)."""
+        return SchedulingRules(
+            min_rest_hours=self.scheduler_min_rest_hours,
+            max_shifts_per_week=self.scheduler_max_shifts_per_week,
+            max_steps=self.scheduler_max_steps,
+        )
 
     @property
     def tz(self) -> ZoneInfo:

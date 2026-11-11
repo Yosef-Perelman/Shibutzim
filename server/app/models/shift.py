@@ -1,9 +1,10 @@
 from datetime import date, datetime
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Integer, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, IdMixin
+from app.models.shift_template import ShiftTemplate
 
 
 class Shift(IdMixin, Base):
@@ -24,3 +25,10 @@ class Shift(IdMixin, Base):
     starts_at: Mapped[datetime]
     ends_at: Mapped[datetime]
     required_staff: Mapped[int] = mapped_column(Integer)
+
+    template: Mapped[ShiftTemplate] = relationship(lazy="joined")
+
+    @property
+    def name(self) -> str:
+        """The template's name: what the shift is called on screen."""
+        return self.template.name

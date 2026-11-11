@@ -9,9 +9,17 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.core.enums import Role, TimeEntrySource
+from app.core.enums import AvailabilityStatus, Role, ScheduleStatus, TimeEntrySource
 from app.core.security import verify_password
-from app.models import Availability, Shift, ShiftTemplate, TimeEntry, User
+from app.models import (
+    Assignment,
+    Availability,
+    Schedule,
+    Shift,
+    ShiftTemplate,
+    TimeEntry,
+    User,
+)
 from app.services import pay_service
 from scripts import seed
 from tests.factories import NOW, TEST_BCRYPT_ROUNDS
@@ -34,7 +42,7 @@ def count(session: Session, model) -> int:
 def table_counts(session: Session) -> dict[str, int]:
     return {
         model.__tablename__: count(session, model)
-        for model in (User, ShiftTemplate, Shift, Availability, TimeEntry)
+        for model in (User, ShiftTemplate, Shift, Availability, TimeEntry, Schedule, Assignment)
     }
 
 
@@ -66,6 +74,8 @@ def test_the_first_run_creates_every_kind_of_row(session: Session) -> None:
         "shifts",
         "availabilities",
         "time_entries",
+        "schedules",
+        "assignments",
     }
     assert report.existing == {}
 
@@ -143,16 +153,78 @@ def test_shifts_snapshot_the_template_values(seeded: Session) -> None:
     assert shift.starts_at.astimezone(TZ).time() == template.start_time
 
 
-def test_availability_covers_next_week_with_mixed_answers_and_gaps(seeded: Session) -> None:
-    next_week_shifts = count(seeded, Shift) // 2
+def test_availability_covers_both_weeks_with_mixed_answers_and_gaps(seeded: Session) -> None:
+    total_shifts = count(seeded, Shift)
     answers = list(seeded.scalars(select(Availability)))
 
     statuses = {a.status.value for a in answers}
     assert statuses == {"available", "preferred", "unavailable"}
-    assert len(answers) < 5 * next_week_shifts  # some employees gave no answer
+    assert len(answers) < 5 * total_shifts  # some employees gave no answer
     assert {s.week_start for s in (seeded.get(Shift, a.shift_id) for a in answers)} == {
-        date(2026, 3, 15)
+        date(2026, 3, 8),
+        date(2026, 3, 15),
     }
+
+
+# --- schedule ---
+
+THIS_WEEK = date(2026, 3, 8)
+NEXT_WEEK = date(2026, 3, 15)
+
+
+def test_this_week_has_a_published_schedule_and_next_week_has_none(seeded: Session) -> None:
+    schedules = {s.week_start: s for s in seeded.scalars(select(Schedule))}
+
+    assert set(schedules) == {THIS_WEEK}
+    assert schedules[THIS_WEEK].status is ScheduleStatus.published
+    assert schedules[THIS_WEEK].published_at == NOW
+
+
+def test_the_seeded_schedule_has_assignments(seeded: Session) -> None:
+    assert count(seeded, Assignment) > 0
+
+
+def test_the_seeded_schedule_breaks_no_hard_constraint(seeded: Session) -> None:
+    """Checked with plain arithmetic, not with the solver's own constraint code."""
+    answers = {(a.shift_id, a.user_id): a.status for a in seeded.scalars(select(Availability))}
+    shifts = {s.id: s for s in seeded.scalars(select(Shift))}
+    per_shift = defaultdict(list)
+    per_user = defaultdict(list)
+    for assignment in seeded.scalars(select(Assignment)):
+        shift = shifts[assignment.shift_id]
+        per_shift[shift.id].append(assignment.user_id)
+        per_user[assignment.user_id].append(shift)
+        assert answers.get((shift.id, assignment.user_id)) in {
+            AvailabilityStatus.available,
+            AvailabilityStatus.preferred,
+        }
+
+    assert all(len(people) <= shifts[sid].required_staff for sid, people in per_shift.items())
+    for worked in per_user.values():
+        worked.sort(key=lambda shift: shift.starts_at)
+        assert len(worked) <= 5
+        assert all(
+            later.starts_at - earlier.ends_at >= timedelta(hours=8)
+            for earlier, later in zip(worked, worked[1:], strict=False)
+        )
+
+
+def test_seeded_assignments_go_to_employees_only(seeded: Session) -> None:
+    people = {a.user_id for a in seeded.scalars(select(Assignment))}
+
+    roles = set(seeded.scalars(select(User.role).where(User.id.in_(people))))
+    assert roles == {Role.employee}
+
+
+def test_rerunning_the_seed_keeps_manual_changes_to_the_schedule(seeded: Session) -> None:
+    removed = seeded.scalar(select(Assignment).limit(1))
+    before = count(seeded, Assignment)
+    seeded.delete(removed)
+    seeded.flush()
+
+    run_seed(seeded)
+
+    assert count(seeded, Assignment) == before - 1
 
 
 # --- time entries ---

@@ -165,10 +165,11 @@ Not in the database in v1:
 
 1. Shifts for the next week are generated from active templates (`week_start` + weekday + times, computed in
    `Asia/Jerusalem`, stored in UTC).
-2. Employees submit availability per shift.
+2. Employees submit availability per shift, until a schedule exists for the week (managers can always correct it).
 3. The manager clicks **Generate**: the service loads shifts, employees and availabilities, builds rule objects, and
    calls `scheduler.solve(shifts, employees, availabilities, rules) -> ScheduleResult`. The result contains the
-   assignments found, a score, and a list of unfilled slots with reasons.
+   assignments found, a score, and a list of unfilled slots with reasons. `schedule_service.propose_schedule` runs
+   the same path without saving (the assistant's dry run, and `debug-schedule` with trace mode on).
 4. The service stores the result as the week's `draft` schedule (replacing any previous draft).
 5. The manager edits assignments; each edit is validated by the same hard-constraint checks (overlap and rest block,
    availability warns).
@@ -271,5 +272,7 @@ Planned for the last roadmap plan; designed for from the start:
 | Authorization in services, not routers | per-route dependencies, decorators | services are the only layer both REST and assistant tools share; one place to get right |
 | Daily-only overtime in v1 | daily + weekly | daily tiers cover the core cases (split shift, midnight crossing); weekly adds a second aggregation axis best added once daily is solid |
 | Pay rules in configuration | a `pay_rules` table | no UI to edit them in v1; a typed settings object is simpler to test and version |
+| Search budget in steps, not seconds | wall-clock time limit | a pure module cannot read the clock, and a step count makes every solve reproducible and testable; the best result found is returned with `complete` saying whether the search finished |
+| Backtracking for coverage, then hill-climbing for fairness and preferences | one combined objective inside the search | coverage is the hard part and gets exact pruning; the soft score only ever improves a valid schedule, so the polish cannot break a hard constraint |
 | Shifts snapshot template values | join to templates at read time | editing a template must not rewrite past weeks |
 | Stateless assistant chat | persisted conversations | fewer tables and endpoints for v1; the client already holds the messages it displays |
