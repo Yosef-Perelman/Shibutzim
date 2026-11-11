@@ -70,11 +70,11 @@ def unfilled_lines(proposal: Proposal) -> list[str]:
     for slot, sentence in zip(proposal.result.unfilled, proposal.sentences, strict=True):
         lines.append(f"- {sentence}")
         blocked: dict[int, list[str]] = defaultdict(list)
-        unanswered: list[str] = []
+        unwilling = {r.employee_id for r in slot.reasons if r.constraint is Constraint.availability}
+        unanswered = [names[employee_id] for employee_id in sorted(unwilling)]
         for reason in slot.reasons:
-            if reason.constraint is Constraint.availability:
-                unanswered.append(names[reason.employee_id])
-                continue
+            if reason.employee_id in unwilling:
+                continue  # never a candidate, so no other rule is the cause
             detail = CONSTRAINT_PHRASES[reason.constraint]
             if reason.shift_id is not None:
                 other = shifts[reason.shift_id]

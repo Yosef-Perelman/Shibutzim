@@ -3,14 +3,14 @@
 "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest": the shift's local
 weekday and start, how many are required and placed, then each employee who said they could work
 the shift but was excluded by a hard constraint. Employees who did not answer `available` are
-not listed: they were never candidates.
+not listed, whatever else applies to them: they were never candidates.
 """
 
 from collections.abc import Iterable
 from zoneinfo import ZoneInfo
 
 from app.core.time import weekday_sunday_based
-from app.scheduler.types import Constraint, Employee, ScheduleResult, Shift
+from app.scheduler.types import Constraint, Employee, Exclusion, ScheduleResult, Shift
 
 WEEKDAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 CONSTRAINT_PHRASES = {
@@ -44,11 +44,17 @@ def explain(
     return sentences
 
 
-def excluded_by(reasons: Iterable) -> dict[int, list[str]]:
-    """employee id -> phrases of the hard constraints (other than availability), in id order."""
+def excluded_by(reasons: Iterable[Exclusion]) -> dict[int, list[str]]:
+    """employee id -> phrases of the hard constraints that blocked a willing employee, in id order.
+
+    Someone who did not answer `available` was never a candidate, so no other rule is blamed for
+    their absence even if one also applies.
+    """
+    reasons = list(reasons)
+    unwilling = {r.employee_id for r in reasons if r.constraint is Constraint.availability}
     found: dict[int, list[str]] = {}
     for reason in reasons:
-        if reason.constraint is Constraint.availability:
+        if reason.employee_id in unwilling:
             continue
         phrases = found.setdefault(reason.employee_id, [])
         phrase = CONSTRAINT_PHRASES[reason.constraint]
