@@ -10,6 +10,8 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.assistant.llm import LLM
+from app.assistant.llm.provider import get_llm
 from app.core.errors import ErrorCode, Unauthorized
 from app.db import get_session
 from app.models import User
@@ -25,6 +27,7 @@ def get_now() -> datetime:
 
 SessionDep = Annotated[Session, Depends(get_session)]
 NowDep = Annotated[datetime, Depends(get_now)]
+LlmDep = Annotated[LLM, Depends(get_llm)]
 
 
 def current_user(
