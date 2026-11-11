@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | in progress |
+| **Status** | done |
 | **Date** | 2026-11-11 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §3, §5.1–§5.4, §6.3 · [architecture.md](../docs/architecture.md) §4, §9, §10 · [glossary.md](../docs/glossary.md) · rules: [ui](../docs/rules/ui-rules.md), [coding](../docs/rules/coding-rules.md) (TypeScript), [naming](../docs/rules/naming-rules.md), [style](../docs/rules/style-rules.md), [error-handling](../docs/rules/error-handling-rules.md), [testing](../docs/rules/testing-rules.md), [git](../docs/rules/git-rules.md) · subagents: [frontend](../.claude/agents/frontend.md), [backend](../.claude/agents/backend.md) · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 003 of 005 |
@@ -267,19 +267,80 @@ step 1 may start. The style-preview gate in step 4 still applies: no screen is w
 
 ## What changed vs. plan
 
-*(Running notes while the plan is in progress; the final table is written when it is closed.)*
+**Outcome.** Every goal item shipped except one: the TypeScript post-edit hook is committed and works, but it is
+not registered in `.claude/settings.json` because the harness denied that edit (see Deferred). The branch has 28
+commits (this one included). The client has 153 tests and the server 685 (670 before, 15 new for `GET /api/users`).
+All eleven open questions were approved as suggested. No migration was needed. Two later checks were run in a real
+Chrome (through its debugging protocol) against the seeded development database; the dev data was restored to its
+seeded state afterwards.
 
-**Progress.** Steps 1 to 4 are committed. **Gate (step 4): passed on 2026-11-11**, see "Amendment on approval".
-
-**Deviations so far**
+### Deviations
 
 | What | Why | Effect |
 |---|---|---|
 | Versions are newer majors than open question 2 listed: Mantine 9.7.4, MobX 7.1.3, Vite 8.3.5, React Router 8.5.1, Vitest 5.0.5, React 19.3.1, ESLint 10.13.0. All pinned exactly, each at least two weeks old (cutoff 2026-10-28). | The plan said "pinned at install to releases at least two weeks old"; the named majors were suggestions and are no longer current. | `client/package.json` and the lockfile are the source of truth. |
 | TypeScript is **6.0.3**, not 7. | `typescript-eslint` 8.72 accepts only TypeScript below 6.1; TypeScript 7 made `npm install` fail. | Move to 7 when `typescript-eslint` supports it. |
-| The TypeScript hook (step 3) is committed but **not registered** in `.claude/settings.json`, and the `npm` / `npx` permission rules are not added. | The harness denied the command that edited `settings.json` (it grants permissions). | Until Yosef approves the edit, `npm run lint` and `npm run format` run by hand before each commit. The exact change is in `post_edit_ts.py` plus one PostToolUse entry and five allow rules. |
-| Design system differs from the references on purpose: the primary blue is darker (`#2f6fe0`) and muted text is darker (`#6b677a`). | The references fail WCAG AA (white on `#4d96f8` is 2.99:1; their grey text is 3.5:1). | Documented in `docs/design-system.md` §1 and §2. |
-| The availability control is three equal tiles with the icon above the word, not three pills. | At 375 px the pill version clipped "Unavailable" (found by rendering in a real 375 px frame). | Updated in the design system §6.2. |
-| Button height is 44 px everywhere, not 44 on phones and 40 on desktop. | One value is simpler and meets the touch-target rule on every device. | Design system §6.1. |
+| The TypeScript hook (step 3) is committed but **not registered**, and the `npm` / `npx` permission rules are not added. | The harness denied the command that edited `settings.json` (it grants permissions). | Lint and format run by hand (`npm run lint`, `npm run format`). Validation item 16 was not run. |
+| The design system differs from the references on purpose: primary blue `#2f6fe0` instead of `#4d96f8`, muted text `#6b677a` instead of `#807c8f`. | The references fail WCAG AA (white on `#4d96f8` is 2.99:1; their grey text is 3.5:1 on their cards). | `docs/design-system.md` §1 and §2; the sky blue stays for icons and focus rings. |
+| The availability control is three equal tiles with the icon above the word, not three pills. | At a real 375 px the pill version clipped "Unavailable". | Design system §6.2. |
+| Button height is 44 px everywhere, not 44 on phones and 40 on desktop. | One value is simpler and meets the touch-target rule everywhere. | Design system §6.1. |
+| The manager board opens on **next week**, My shifts on this week, Availability on next week. | The plan said "week picker" without a default; next week is the week a manager schedules. | A "This week" button appears when away from the current week. |
+| The board shows 7 narrow columns (146 px minimum) with each card stacking name, time and coverage. | Found by driving the real app: at 1280 px the first layout pushed Saturday off screen and cut the coverage badge to "2...". | Fixed in a `fix:` commit; at 768 px the grid scrolls inside its own container. |
+| `GET /api/users` returns `UserOut` with `hourly_rate`. | The endpoint is manager-only, so there is nothing to hide. | As planned; no new error codes. |
+| The planned `PayStore` / `ScheduleStore` test names became larger suites (17 test files in all) and a shared `makeFakeApi` / `renderWithStores` test helper. | Screen tests needed a complete fake API; a half-built one leaked unhandled rejections. | `client/src/test/`. |
 
+### Decisions made while building (not in the plan)
 
+- **Session:** `AuthStore.login` drops the current session first, so a wrong password during a demo switch cannot look
+  like an expired token; a 401 ends the session only when a token was sent.
+- **Action results:** user-triggered store actions return `ActionResult` (ok with the server's warnings, or the
+  server's code and message). Dialogs show blocking errors inline; warnings become notifications that stay until
+  dismissed. Architecture §9 and the decision log say so.
+- **Availability lock:** the client learns a week is locked from a visible schedule for that week (a published one
+  for employees) or from a `409 availability_locked` on save. A past week is read-only without asking.
+- **Unsaved answers:** the week arrows are disabled while the availability form has unsaved changes.
+- **Clock card:** looks back seven days for an open entry, because a forgotten clock-out stays open.
+- **Manager board:** loads the week's shifts as well as its schedule, because shifts exist before a schedule; without
+  a schedule the cards show nobody assigned. After every edit it re-reads the week silently (no loading flash) so
+  coverage always comes from the server.
+- **Drill-down:** the team pay drawer reuses `PayBreakdown`; closing it stops `PayStore` from reloading that person.
+- **Demo switch:** `VITE_DEMO_USERS` lists the accounts, development only; the password is typed once and kept in
+  memory only when that list is set.
+- **Removed:** the temporary "Coming soon" screen, once every route was real.
+
+### Validation results
+
+| # | Result |
+|---|---|
+| 1 | `docs/design-system.md` exists; `git ls-files design/` is empty. |
+| 2 | The approval commit precedes the first step-5 commit in `git log`. |
+| 3 | `npm run lint`, `typecheck`, `test` (153 passed) and `build` all exit 0; `dist/` is ignored. The build warns that one chunk is over 500 kB; code splitting belongs to plan 005. |
+| 4 | `uv run pytest -q`: 685 passed. `GET /api/users`: 401 without a token, 403 for an employee, 200 for a manager with filters and ordering. `ruff check` and `ruff format --check` clean; routers and schemas pass the layering greps; `alembic check` reports nothing to do. |
+| 5 | `fetch(` appears only in `api/apiClient.ts`. |
+| 6 | No `Number`, `parseFloat`, `toFixed` or arithmetic on money in `client/src`; `hourly_rate` and `multiplier` are only displayed. The remaining `Number(...)` calls convert ids and booleans. |
+| 7 | Browser, 375 px phone emulation, as Noa: lands on `/me/shifts`; this week shows the published schedule with Noa's shifts first and the team below; next week shows "Schedule not published yet"; `/manager/schedule` redirects to `/me/shifts`. |
+| 8 | Browser: this week is read-only with the lock explanation and all 48 radios disabled; next week has 16 controls; changing two answers and saving shows a confirmation and a reload shows the same answers. |
+| 9 | Browser: the page total (₪3,198.13) and the first work day (₪340.00) equal `GET /api/pay` for the same month, compared by script, not by eye. |
+| 10 | Browser at 375 px: no horizontal overflow on My shifts, Availability or My pay (checked by script); every input has a visible label (reviewed in screenshots). The 44 px touch targets are set in the theme, not measured. |
+| 11 | Browser, 1280 px, as Dana: next week shows "No schedule" and a seven-day grid; Generate asks nothing when there is no draft, then shows the draft, 21 positions filled and five unfilled sentences from the solver. "Create this week's shifts" was not exercised in the browser because the shifts already existed; it is covered by store and screen tests. |
+| 12 | Browser: adding Noa to the Night after her Evening gave the server's rest message inline and saved nothing; adding Lior to a shift he did not offer saved it with a warning notification; removal asks first and the delete reached the server (re-checked with real mouse events after a first script run clicked the wrong menu); Publish asks first, the badge turns Published, Generate is disabled, and a second publish through the API gave `409 schedule_published`. An overlap edit was not tried in the browser. |
+| 13 | Browser: the team table had six rows and the total (₪12,903.38) equals `GET /api/pay/team`; the drill-down for Noa shows ₪3,198.13, the same as her own page. |
+| 14 | Browser, connection switched off inside the app (the server was not stopped): the error state shows "Could not reach the server" with Retry; Retry recovers when the connection returns. |
+| 15 | Browser: an invalid token in `localStorage` lands on `/login` with the "Session expired" notice. |
+| 16 | **Not run.** The hook is not registered (see Deferred). The script itself was exercised directly: it reformatted a badly formatted file, reported the unfixable `any`, and ignored a Python file. |
+| 17 | `git log` reads docs, plan, chore, feat (preview), then test / feat pairs, then docs, then this close; the one `fix:` commit followed its feature after real-browser testing. |
+
+### Deferred
+
+- **Register the TypeScript hook.** Add this to `.claude/settings.json`: one `PostToolUse` entry (matcher
+  `Edit|Write|MultiEdit`, command `python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_ts.py"`, timeout 120) and
+  these allow rules: `Bash(npm run *)`, `Bash(npx tsc *)`, `Bash(npx vitest *)`, `Bash(npx prettier *)`,
+  `Bash(npx eslint *)`. Then edit any `.tsx` file once to confirm validation item 16.
+- **Shift templates and manager time-entry corrections in the UI**, and a cross-week "my assignments" endpoint:
+  still API-only, as the plan said.
+- **No browser tests in the repository.** The real-browser checks used a throwaway driver script outside the
+  repository; a Playwright suite would be a new dependency and belongs in plan 005 with CI.
+- **Bundle size:** one chunk over 500 kB; code splitting with the Dockerfile and CI work in plan 005.
+- **TypeScript 7** once `typescript-eslint` supports it.
+- **Hebrew and right-to-left** layout: the references are Hebrew; layout code uses logical properties so it stays
+  cheap to add.
