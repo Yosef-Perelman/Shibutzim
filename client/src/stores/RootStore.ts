@@ -1,6 +1,7 @@
 import { ApiClient } from '../api/apiClient';
 import { createApi, type Api } from '../api';
 import { AuthStore } from './AuthStore';
+import { ScheduleStore } from './ScheduleStore';
 import { createLocalTokenStorage, type TokenStorage } from './tokenStorage';
 
 export interface RootStoreOptions {
@@ -24,6 +25,7 @@ function configuredDemoUsers(): string[] {
 export class RootStore {
   readonly api: Api;
   readonly auth: AuthStore;
+  readonly schedule: ScheduleStore;
 
   constructor(options: RootStoreOptions = {}) {
     this.api =
@@ -38,6 +40,10 @@ export class RootStore {
       api: this.api,
       storage: options.storage ?? createLocalTokenStorage(),
       demoUsers: options.demoUsers ?? configuredDemoUsers(),
+    });
+    this.schedule = new ScheduleStore({
+      api: this.api,
+      currentUserId: () => this.auth.user?.id ?? null,
     });
   }
 }
