@@ -1,0 +1,20 @@
+/* Page ground and text color of docs/design-system.md §2.1; everything else comes from the theme. */
+body {
+  margin: 0;
+  background-color: #fbfaf9;
+  color: #1f1c42;
+  font-variant-numeric: normal;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A skeleton is a card-shaped placeholder: card fill pulsing to card-strong (design-system §6.5). */
+.mantine-Skeleton-root[data-visible]::before {
+  background-color: var(--mantine-color-sand-1);
+}
+
+.mantine-Skeleton-root[data-visible]::after {
+  background-color: var(--mantine-color-sand-2);
+}

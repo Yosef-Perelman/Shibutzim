@@ -239,15 +239,34 @@ the `llm` adapter, and upserts `handbook_chunks`. Re-running replaces the chunks
 
 ## 9. Client architecture
 
-- **Vite + React + TypeScript**, strict mode.
-- **MobX**: one store per domain – `AuthStore` (token, user, role switch), `ScheduleStore`, `AvailabilityStore`,
-  `TimeStore`, `PayStore`, `AssistantStore`. Stores own server state and async actions; components observe.
-- **API client**: one typed module per resource, DTOs mirroring the server schemas (snake_case fields, same names
-  as the glossary).
-- **Mantine** for layout, forms and tables; mobile-first for employee screens.
-- **Routes** split by role: `/manager/*` and `/me/*`, guarded by the store's role; the server is still the real
-  guard.
-- **Assistant UI**: a chat panel; proposal messages render Confirm / Cancel and call the normal REST endpoint.
+- **Vite + React + TypeScript**, strict mode. Tests with Vitest and Testing Library. In development Vite proxies
+  `/api` to the server on port 8000, so the browser stays same-origin and the same container can serve the built
+  client later; `VITE_API_URL` points the client at another host.
+- **MobX**: one store per domain, created once by a `RootStore` and shared through a React context –
+  `AuthStore` (token, user, login, logout, demo-user switch), `ScheduleStore` (a week's schedule, the manager's
+  board and its actions), `AvailabilityStore`, `TimeStore` (clock in / out), `PayStore`, `AssistantStore` (plan
+  004). Stores own server state and async actions; components observe and never call `fetch`.
+- **API client** (`client/src/api/`): one `ApiClient` is the only caller of `fetch`; one module per resource, DTOs
+  in `api/types/` mirroring the server schemas (snake_case fields, money as strings). Errors become a typed
+  `ApiError { status, code, message, details }`.
+- **Session**: the access token lives in `localStorage` and is checked with `GET /api/auth/me` at start-up. A `401`
+  on a request that carried a token ends the session and the login screen says so; a `401` on login (wrong
+  password) does not.
+- **User actions return a result**: a store action that the user triggers (generate, publish, add an assignment)
+  returns an `ActionResult`, so a dialog shows a blocking error's server message inline and the screen shows the
+  server's edit warnings as notifications.
+- **Display only**: the client formats what the server returns (`lib/format.ts` for money and hours, `lib/time.ts`
+  for `Asia/Jerusalem` weeks and clock times) and never computes pay or checks a scheduling rule.
+- **Mantine** for layout, forms and tables; mobile-first for employee screens. Colors, type, spacing, radius and
+  component rules come from [design-system.md](design-system.md); `client/src/theme.ts` implements them.
+- **Layout** of `client/src/`: `api/`, `stores/`, `features/` (one folder per screen area: `auth`, `me`, `manager`,
+  `pay`, `shell`, `design`), `components/` (shared pieces such as status badges and the loading / empty / error
+  views), `routes/`, `lib/`.
+- **Routes** split by role: `/me/*` for everyone signed in, `/manager/*` for managers only, guarded by the store's
+  role; an employee on a manager address, and anyone on an unknown address, is sent to their home. The server is
+  still the real guard.
+- **Assistant UI** (plan 004): a chat panel; proposal messages render Confirm / Cancel and call the normal REST
+  endpoint.
 
 ## 10. Deployment and operations
 
@@ -276,3 +295,6 @@ Planned for the last roadmap plan; designed for from the start:
 | Backtracking for coverage, then hill-climbing for fairness and preferences | one combined objective inside the search | coverage is the hard part and gets exact pruning; the soft score only ever improves a valid schedule, so the polish cannot break a hard constraint |
 | Shifts snapshot template values | join to templates at read time | editing a template must not rewrite past weeks |
 | Stateless assistant chat | persisted conversations | fewer tables and endpoints for v1; the client already holds the messages it displays |
+| Vite proxy for `/api` in development | CORS with an explicit API host | the browser stays same-origin, no CORS settings to keep in step, and plan 005's single container (FastAPI serving the built client) needs no change |
+| Access token in `localStorage` | `httpOnly` cookie, refresh tokens | tokens last eight hours and the demo has no refresh flow; a cookie would need server changes and CSRF handling |
+| Stores return an `ActionResult` instead of throwing | store-level error fields, exceptions | a dialog shows the blocking message next to the action that caused it, and a screen can show warnings, without each store keeping a field per action |

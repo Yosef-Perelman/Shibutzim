@@ -35,3 +35,15 @@ def list_active_employees(session: Session) -> list[User]:
     """The people the scheduler may place on shifts: active users with the employee role."""
     query = select(User).where(User.role == Role.employee, User.is_active)
     return list(session.scalars(query.order_by(User.id)))
+
+
+def list_users(
+    session: Session, *, role: Role | None = None, is_active: bool | None = None
+) -> list[User]:
+    """Users filtered by the given fields (None means "any"), by name, then id."""
+    query = select(User)
+    if role is not None:
+        query = query.where(User.role == role)
+    if is_active is not None:
+        query = query.where(User.is_active == is_active)
+    return list(session.scalars(query.order_by(User.name, User.id)))

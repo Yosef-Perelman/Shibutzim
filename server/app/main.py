@@ -16,6 +16,7 @@ from app.api import (
     shift_templates,
     shifts,
     time_entries,
+    users,
 )
 from app.config import get_settings
 from app.core.errors import DomainError, ErrorCode, Unauthorized, error_body
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     application.include_router(shifts.router)
     application.include_router(availabilities.router)
     application.include_router(schedules.router)
+    application.include_router(users.router)
     return application
 
 

@@ -1,0 +1,64 @@
+import { Container } from '@mantine/core';
+import { observer } from 'mobx-react-lite';
+import { Navigate, Outlet, Route, Routes } from 'react-router';
+
+import { LoadingState } from '../components/StateViews';
+import { LoginScreen } from '../features/auth/LoginScreen';
+import { StylePreview } from '../features/design/StylePreview';
+import { AvailabilityForm } from '../features/me/AvailabilityForm';
+import { ScheduleBoard } from '../features/manager/ScheduleBoard';
+import { TeamPay } from '../features/manager/TeamPay';
+import { MyPay } from '../features/me/MyPay';
+import { MyShifts } from '../features/me/MyShifts';
+import { AppShell } from '../features/shell/AppShell';
+import { useAuthStore } from '../stores/StoreContext';
+
+/** Anyone logged in gets the shell; everybody else goes to the login screen. */
+const RequireAuth = observer(function RequireAuth() {
+  const auth = useAuthStore();
+  if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
+  return <AppShell />;
+});
+
+/** The role only hides what it cannot use; the server is still the real guard. */
+const RequireManager = observer(function RequireManager() {
+  const auth = useAuthStore();
+  if (!auth.isManager) return <Navigate to={auth.homePath} replace />;
+  return <Outlet />;
+});
+
+const Fallback = observer(function Fallback() {
+  const auth = useAuthStore();
+  return <Navigate to={auth.isAuthenticated ? auth.homePath : '/login'} replace />;
+});
+
+/** Routes of the app, split by role (architecture §9). The style preview exists only in development. */
+export const AppRoutes = observer(function AppRoutes() {
+  const auth = useAuthStore();
+  if (auth.isRestoring) {
+    return (
+      <Container size={640} py="xl">
+        <LoadingState rows={2} />
+      </Container>
+    );
+  }
+  return (
+    <Routes>
+      {import.meta.env.DEV ? <Route path="/design" element={<StylePreview />} /> : null}
+      <Route
+        path="/login"
+        element={auth.isAuthenticated ? <Navigate to={auth.homePath} replace /> : <LoginScreen />}
+      />
+      <Route element={<RequireAuth />}>
+        <Route path="/me/shifts" element={<MyShifts />} />
+        <Route path="/me/availability" element={<AvailabilityForm />} />
+        <Route path="/me/pay" element={<MyPay />} />
+        <Route path="/manager" element={<RequireManager />}>
+          <Route path="schedule" element={<ScheduleBoard />} />
+          <Route path="pay" element={<TeamPay />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Fallback />} />
+    </Routes>
+  );
+});

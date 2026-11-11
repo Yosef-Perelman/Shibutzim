@@ -35,6 +35,7 @@ mapping code and one vocabulary for people and agents.
 | **Login** | exchange email and password for an access token; every failure looks the same | `POST /api/auth/login` · `LoginRequest`, `TokenOut` |
 | **Access token** | JWT (HS256) with `sub` (user id) and `role`; valid 8 hours; sent as `Authorization: Bearer` | `create_access_token`, `TokenClaims` |
 | **Current user endpoint** | the authenticated user's own profile | `GET /api/auth/me` · `UserOut` |
+| **User list** | managers only: every user, filtered by `role` and `is_active`, ordered by name; feeds the employee picker of the schedule board | `GET /api/users` · `user_service.list_users` · `UserOut` |
 | **Demo user** | a user created by the seed; all share the password in `SEED_PASSWORD` | `scripts/seed.py` |
 | **Hourly rate** | an employee's base pay per hour | `hourly_rate` · `users.hourly_rate` (numeric) · `"hourly_rate"` (string) |
 
@@ -96,6 +97,20 @@ mapping code and one vocabulary for people and agents.
 | **Open entries (in pay)** | entries without a clock-out in the range; excluded from pay and reported as a count | `open_entries` |
 | **Display hours** | hours in pay responses, rounded to two decimals for display only; `seconds` is the exact duration | `hours` next to `seconds` |
 | **Work-day range** | `from` and `to` query parameters: first and last work day, both inclusive; an entry belongs to the range if its work day does | `from`, `to` |
+
+### Client
+
+| Term | Meaning | Code · DB · API |
+|---|---|---|
+| **Design system** | the written visual rules (colors, type, spacing, radius, component do's and don'ts) the Mantine theme implements | `docs/design-system.md` · `client/src/theme.ts` |
+| **Style preview** | a development-only page that shows every token and component state of the design system | `/design` · `features/design/StylePreview.tsx` |
+| **Schedule board** | the manager's week: shifts by day, coverage, generate, edit, publish | `/manager/schedule` · `features/manager/ScheduleBoard.tsx` |
+| **Coverage badge** | "assigned / required" on a shift: green when full, red while short | `CoverageBadge` |
+| **Last generate panel** | the solver's report shown after Generate: unfilled shifts in its own words, score, and whether the search finished | `UnfilledPanel` · `ScheduleStore.lastRun` |
+| **Action result** | what a user-triggered store action returns: ok with the server's warnings, or a blocking error with its code and message | `ActionResult` |
+| **Demo-user switch** | development-only list of the seeded accounts on the login screen and in the user menu; the password is typed once and kept in memory | `VITE_DEMO_USERS` · `AuthStore.switchTo` |
+| **Session expiry** | the server rejected a token the client sent; the client logs out and the login screen says so | `AuthStore.expireSession` · `sessionExpired` |
+| **Period navigator** | previous / next arrows with the week or month between them | `PeriodNavigator`, `WeekNavigator` |
 
 ### Assistant
 
