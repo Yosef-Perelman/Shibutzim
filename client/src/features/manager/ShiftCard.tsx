@@ -22,15 +22,13 @@ export function ShiftCard({ entry, busy, onAdd, onReplace, onRemove }: ShiftCard
   return (
     <Card padding="sm" component="article" aria-label={`${shift.name} ${day}`}>
       <Stack gap="xs">
-        <Group justify="space-between" wrap="nowrap" align="flex-start" gap="xs">
-          <Stack gap={0}>
-            <Text fw={500}>{shift.name}</Text>
-            <Text size="sm" c="ink.6" className="tabular">
-              {formatTimeRange(shift.starts_at, shift.ends_at)}
-            </Text>
-          </Stack>
+        <Stack gap={2} align="flex-start">
+          <Text fw={500}>{shift.name}</Text>
+          <Text size="sm" c="ink.6" className="tabular" style={{ whiteSpace: 'nowrap' }}>
+            {formatTimeRange(shift.starts_at, shift.ends_at)}
+          </Text>
           <CoverageBadge assigned={shift.assigned_count} required={shift.required_staff} />
-        </Group>
+        </Stack>
 
         {people.length === 0 ? (
           <Text size="sm" c="ink.6">

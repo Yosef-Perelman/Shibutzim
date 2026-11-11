@@ -118,7 +118,7 @@ export const ScheduleBoard = observer(function ScheduleBoard() {
         <SimpleGrid
           cols={DAYS_IN_WEEK}
           spacing="sm"
-          style={{ gridTemplateColumns: `repeat(${DAYS_IN_WEEK}, minmax(188px, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${DAYS_IN_WEEK}, minmax(146px, 1fr))` }}
         >
           {week.map((date) => {
             const entries = store.days.find((day) => day.date === date)?.shifts ?? [];
