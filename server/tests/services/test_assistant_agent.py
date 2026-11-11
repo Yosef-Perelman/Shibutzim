@@ -1,4 +1,4 @@
-"""The agent loop: model, tool call, tool result, model - until a text answer (architecture §6.4)."""
+"""The agent loop: model, tool call, tool result, model, until a text answer (§6.4)."""
 
 from datetime import date, time
 
