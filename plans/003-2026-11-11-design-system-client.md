@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | in progress |
 | **Date** | 2026-11-11 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §3, §5.1–§5.4, §6.3 · [architecture.md](../docs/architecture.md) §4, §9, §10 · [glossary.md](../docs/glossary.md) · rules: [ui](../docs/rules/ui-rules.md), [coding](../docs/rules/coding-rules.md) (TypeScript), [naming](../docs/rules/naming-rules.md), [style](../docs/rules/style-rules.md), [error-handling](../docs/rules/error-handling-rules.md), [testing](../docs/rules/testing-rules.md), [git](../docs/rules/git-rules.md) · subagents: [frontend](../.claude/agents/frontend.md), [backend](../.claude/agents/backend.md) · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 003 of 005 |
@@ -265,4 +265,20 @@ step 1 may start. The style-preview gate in step 4 still applies: no screen is w
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+*(Running notes while the plan is in progress; the final table is written when it is closed.)*
+
+**Progress.** Steps 1 to 4 are committed. **Gate (step 4): waiting for Yosef to review `/design` at 375 px and
+1280 px.** No step after 4 starts before the approval is recorded under "Amendment on approval".
+
+**Deviations so far**
+
+| What | Why | Effect |
+|---|---|---|
+| Versions are newer majors than open question 2 listed: Mantine 9.7.4, MobX 7.1.3, Vite 8.3.5, React Router 8.5.1, Vitest 5.0.5, React 19.3.1, ESLint 10.13.0. All pinned exactly, each at least two weeks old (cutoff 2026-10-28). | The plan said "pinned at install to releases at least two weeks old"; the named majors were suggestions and are no longer current. | `client/package.json` and the lockfile are the source of truth. |
+| TypeScript is **6.0.3**, not 7. | `typescript-eslint` 8.72 accepts only TypeScript below 6.1; TypeScript 7 made `npm install` fail. | Move to 7 when `typescript-eslint` supports it. |
+| The TypeScript hook (step 3) is committed but **not registered** in `.claude/settings.json`, and the `npm` / `npx` permission rules are not added. | The harness denied the command that edited `settings.json` (it grants permissions). | Until Yosef approves the edit, `npm run lint` and `npm run format` run by hand before each commit. The exact change is in `post_edit_ts.py` plus one PostToolUse entry and five allow rules. |
+| Design system differs from the references on purpose: the primary blue is darker (`#2f6fe0`) and muted text is darker (`#6b677a`). | The references fail WCAG AA (white on `#4d96f8` is 2.99:1; their grey text is 3.5:1). | Documented in `docs/design-system.md` §1 and §2. |
+| The availability control is three equal tiles with the icon above the word, not three pills. | At 375 px the pill version clipped "Unavailable" (found by rendering in a real 375 px frame). | Updated in the design system §6.2. |
+| Button height is 44 px everywhere, not 44 on phones and 40 on desktop. | One value is simpler and meets the touch-target rule on every device. | Design system §6.1. |
+
+
