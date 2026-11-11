@@ -24,6 +24,7 @@ class ErrorCode(StrEnum):
     # 404
     user_not_found = "user_not_found"
     time_entry_not_found = "time_entry_not_found"
+    shift_template_not_found = "shift_template_not_found"
     # 409
     already_clocked_in = "already_clocked_in"
     not_clocked_in = "not_clocked_in"
