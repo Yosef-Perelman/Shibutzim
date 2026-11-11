@@ -63,3 +63,35 @@ def test_load_prompt_reads_a_file_and_fails_loudly_for_a_missing_one():
 def test_load_prompt_refuses_to_leave_the_prompts_folder():
     with pytest.raises(ValueError):
         load_prompt("../config.py")
+
+
+MANAGER_TOOLS = {"who_is_available", "get_team_hours", "generate_schedule_draft", "search_policy"}
+
+
+def test_a_manager_sees_the_manager_tools_and_the_policy_search():
+    assert names(Role.manager) == MANAGER_TOOLS
+
+
+def test_an_employee_never_sees_a_manager_tool():
+    assert not names(Role.employee) & {
+        "who_is_available",
+        "get_team_hours",
+        "generate_schedule_draft",
+    }
+
+
+def test_only_the_schedule_draft_tool_is_a_write_tool():
+    writers = {tool.name for tool in registry.ALL_TOOLS if tool.writes}
+
+    assert writers == {"generate_schedule_draft"}
+
+
+def test_the_manager_tools_declare_their_arguments():
+    who = registry.get_tool("who_is_available").definition().parameters
+    team = registry.get_tool("get_team_hours").definition().parameters
+    draft = registry.get_tool("generate_schedule_draft").definition().parameters
+
+    assert set(who["properties"]) == {"shift_id"} and who["required"] == ["shift_id"]
+    assert set(team["properties"]) == {"from", "to"}
+    assert set(draft["properties"]) == {"week_start", "unavailable"}
+    assert draft["required"] == ["week_start"]

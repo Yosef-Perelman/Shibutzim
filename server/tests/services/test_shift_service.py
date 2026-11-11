@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, time
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.errors import ErrorCode, Forbidden, ValidationFailed
+from app.core.errors import ErrorCode, Forbidden, NotFound, ValidationFailed
 from app.models import Shift, User
 from app.repositories import shift_repository
 from app.services import shift_service as service
@@ -207,3 +207,21 @@ def test_list_rejects_a_week_start_that_is_not_a_sunday(session: Session, employ
         service.list_shifts(session, employee, date(2026, 3, 16))
 
     assert raised.value.code == ErrorCode.invalid_week_start
+
+
+# --- get one shift ---
+
+
+def test_get_shift_returns_the_shift_for_any_user(session: Session, employee: User) -> None:
+    shift = make_shift(session, make_shift_template(session, name="Evening"))
+
+    found = service.get_shift(session, employee, shift.id)
+
+    assert (found.id, found.name) == (shift.id, "Evening")
+
+
+def test_get_shift_of_a_missing_id_is_not_found(session: Session, employee: User) -> None:
+    with pytest.raises(NotFound) as raised:
+        service.get_shift(session, employee, 987654)
+
+    assert raised.value.code == ErrorCode.shift_not_found
