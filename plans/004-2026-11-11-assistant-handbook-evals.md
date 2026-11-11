@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | in progress |
 | **Date** | 2026-11-11 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §5.5, §6.2, §7 · [architecture.md](../docs/architecture.md) §3, §4, §6.4–§6.6, §7–§9, §11 · [glossary.md](../docs/glossary.md) "Assistant", "Scheduling" · rules: [coding](../docs/rules/coding-rules.md) ("Assistant code"), [error-handling](../docs/rules/error-handling-rules.md), [database](../docs/rules/database-rules.md), [testing](../docs/rules/testing-rules.md), [ui](../docs/rules/ui-rules.md), [design-system](../docs/design-system.md), [git](../docs/rules/git-rules.md) · subagents: backend, frontend, qa · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 004 of 005 |
@@ -249,4 +249,55 @@ Each step is one commit unless noted; tests precede the code they test (`test:` 
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+**Outcome (interim, not closed).** Every scope item is built and committed on the branch. The server has 980
+tests and the client 193; ruff, `alembic check`, the client lint, typecheck and build are clean. The plan stays
+`in progress` because two validation items could not be completed today: the real-model eval run has not passed
+all fifteen cases in one run, and the 375 px browser check was not run. Both are listed under "Left to do".
+
+### Deviations
+
+| What | Why | Effect |
+|---|---|---|
+| `google-genai` is pinned to **2.33.0**, not the newest 3.2.0. | 3.2.0 was published the day it was installed; plan 003's rule is a release at least two weeks old. | `server/pyproject.toml`. |
+| The chat model default is **`gemini-3.5-flash`**, not `gemini-2.5-flash`. | The API says 2.5 is no longer available to new users, and `gemini-3.8-flash` timed out on every call, even a plain one. | One setting in `config.py` and `.env.example`. |
+| The free tier allows **5 requests a minute and 20 a day per model**. Evals space calls **13 s** apart, cap at 80 calls, and **retry a failing case only with `--retries`** (default 0). | Found in the first real run; Yosef asked for careful use of the quota. Open question 9 had suggested one automatic retry. | A provider error stops the run at once and spends nothing more. |
+| `embed(texts, task)` takes a document or query task. | The provider embeds a question differently from a document. | `EmbedTask`; the fake records it. |
+| `who_is_available` takes a **day and an optional shift name**, or a `shift_id`. | The model cannot know shift ids, so "who can work Tuesday morning?" had no way to be answered. | `shift_service.get_shift` was added. |
+| Days off are matched by **name** in the draft tool, through `user_service.find_active_employee`. | The model never sees ids it could invent. | Ambiguous names return an error asking which one. |
+| A write tool's proposal travels beside the model's result (`ToolOutcome.proposal`). | The model needs a short summary, the UI needs the details. | Documented in architecture §6.5. |
+| `dispatch.py`, `context.py`, `formatting.py` and `chat.py` sit in `assistant/`, outside `tools/`. | Keeps `tools/` and `agent.py` free of model and repository imports (validation 5). | `User` is re-exported by `context.py` for type hints. |
+| `pay_service.range_bounds` now calls a shared `weeks.day_range_bounds`. | The assignment service needed the same day-range rule. | No behavior change; pay tests pass. |
+| The Assistant screen uses a plain two-row textarea, not an autosizing one. | Mantine's autosize needs browser APIs jsdom lacks. | Simpler, and testable. |
+| The employee bottom bar has **four** items. | The Assistant is reachable for both roles. | Design system §4 and §6.4 updated. |
+| Added a `docs:` row for `assistant_unavailable`, a seed hint, a README section and eval architecture §6.7. | Part of the plan's docs step. | |
+| The TypeScript hook was checked by running its script directly. | I edited files through the shell, which hooks do not see. | It formats and lints a `.tsx` file and exits 0. |
+
+### Validation results
+
+| # | Result |
+|---|---|
+| 1 | The approval commit came first, `chore` settings before any `feat`, and each pure-module `feat` followed its red `test:`. |
+| 2 | `uv run pytest -q`: 980 passed. Tests cover blocked in isolation, service authorization for both new services, 401, 403 and 422 for generate with a body, 401, 422 and 503 and the happy paths for chat, one log row per call including failed and refused ones, and ingestion twice. |
+| 3 | Scheduler matrix: 202 passed, including the blocked cases and a random cross-check with blocks against exhaustive search. |
+| 4 | `ruff check`, `ruff format --check` clean; `alembic check` reports nothing to do. |
+| 5 | `grep app.repositories|app.models` over `assistant/tools` and `agent.py`: no output. |
+| 6 | No prompt text in Python: the prompts and tool descriptions are the markdown files under `assistant/prompts/`. |
+| 7 | `google` is imported only by `app/assistant/llm/gemini.py`. |
+| 8 | No test imports the Gemini SDK except the adapter's own unit tests with a stub client. |
+| 9 | A forced call to a manager tool by an employee returns a refused result and a `refused` log row (dispatch and agent tests). |
+| 10 | `scripts/ingest_handbook.py` run twice against the real API printed "10 sections" both times; `handbook_chunks` holds 10 rows. |
+| 11 | The seed ends with the hint to ingest the handbook; its tests pass. It was not re-run against the development database. |
+| 12 | API test with the scripted fake: `search_policy` for a swap question gives the citation "Shift swaps" and the text names it. |
+| 13 | API test: a manager's request returns a proposal with the day off, creates no schedule row; the generate tests with a body keep the person off that day. |
+| 14 | **Partly.** Run 1 and 2 on `gemini-3.5-flash`: 8 cases passed (hours, overtime, pay, shifts, four policy cases), `pay_vs_last_month` failed on a brittle checker (fixed since), and the daily quota ended the run. A later run of the other seven on `gemini-3.1-flash-lite` passed 7 of 7, 11 model calls. No single run on one model has passed all fifteen yet. |
+| 15 | Client lint, typecheck, build and 193 tests pass. |
+| 16 | **Not run.** No browser tool was available. The chat endpoint, tools and proposal were exercised by the evals; the screen by component tests. |
+| 17 | API test: without a key chat answers 503 `assistant_unavailable`. The other screens were not opened in a browser. |
+
+### Left to do before closing
+
+1. After the daily quota resets, run the seven cases that did not pass on the default model:
+   `cd server && uv run python -m evals.run --only pay_vs_last_month,refuse_other_pay,refuse_offtopic,refuse_injection,team_hours,who_is_available,schedule_proposal`
+   (about 14 calls, under the 20 a day).
+2. Check the Assistant screen in a real browser at 375 px as Noa and at 1280 px as Dana, including Confirm and Cancel.
+3. Then set the status to `done`, update `plans/ROADMAP.md`, commit `plan: close plan 004` and merge into `main`.
