@@ -244,7 +244,8 @@ the `llm` adapter, and upserts `handbook_chunks`. Re-running replaces the chunks
   `TimeStore`, `PayStore`, `AssistantStore`. Stores own server state and async actions; components observe.
 - **API client**: one typed module per resource, DTOs mirroring the server schemas (snake_case fields, same names
   as the glossary).
-- **Mantine** for layout, forms and tables; mobile-first for employee screens.
+- **Mantine** for layout, forms and tables; mobile-first for employee screens. Colors, type, spacing, radius and
+  component rules come from [design-system.md](design-system.md); the Mantine theme implements them.
 - **Routes** split by role: `/manager/*` and `/me/*`, guarded by the store's role; the server is still the real
   guard.
 - **Assistant UI**: a chat panel; proposal messages render Confirm / Cancel and call the normal REST endpoint.

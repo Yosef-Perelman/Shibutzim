@@ -49,7 +49,7 @@ enough to continue exactly where work stopped. Project state lives in files, not
 | Pay calculation or pay rules | product-definition §5.4 and §6.1, [testing-rules](docs/rules/testing-rules.md) (pay matrices) |
 | Scheduler / solver | product-definition §5.2 and §6.2, architecture §6.2, testing-rules (scheduler matrix) |
 | Assistant, tools, prompts, RAG, evals | product-definition §5.5 and §7, architecture §6.4–§6.6 |
-| Client code | architecture §9, [ui-rules](docs/rules/ui-rules.md), [naming-rules](docs/rules/naming-rules.md), [style-rules](docs/rules/style-rules.md) |
+| Client code | architecture §9, [design-system](docs/design-system.md), [ui-rules](docs/rules/ui-rules.md), [naming-rules](docs/rules/naming-rules.md), [style-rules](docs/rules/style-rules.md) |
 | Domain words, names in code / DB / API | [docs/glossary.md](docs/glossary.md) |
 | Writing or closing a plan | [planning-rules](docs/rules/planning-rules.md), [plans/ROADMAP.md](plans/ROADMAP.md) |
 | Commits, branches | [git-rules](docs/rules/git-rules.md) |
@@ -77,8 +77,8 @@ Enforced by you:
 - Use macOS commands (BSD `sed -i ''`, `open`, Homebrew).
 - The local planning brief (`docs/archive/SHIBUTZIM_BRIEF.md`) is git-ignored and private. Never commit it, and
   don't rely on it: everything needed is in `docs/` and `plans/`.
-- UI reference screenshots in `design/references/` are git-ignored and private (other sites' designs). Read them
-  when building the design system in plan 003; commit only what is derived from them.
+- UI reference screenshots in `design/references/` are git-ignored and private (other sites' designs). Plan 003 derived
+  `docs/design-system.md` from them; commit only what is derived.
 
 Hooks guard the Edit and Write tools. A shell command can still bypass them, so don't use Bash to write files the
 hooks protect.
