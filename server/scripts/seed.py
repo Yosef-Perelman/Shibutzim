@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.core.enums import AvailabilityStatus, Role, TimeEntrySource  # noqa: E402
 from app.core.security import DEFAULT_BCRYPT_ROUNDS, hash_password  # noqa: E402
-from app.core.time import week_start, weekday_sunday_based  # noqa: E402
+from app.core.time import shift_bounds, week_start, weekday_sunday_based  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.models import Availability, Shift, ShiftTemplate, TimeEntry, User  # noqa: E402
 
@@ -170,12 +170,14 @@ def seed_shift(session: Session, report: SeedReport, template: ShiftTemplate, we
     report.record("shifts", shift is None)
     if shift is None:
         day = week + timedelta(days=template.weekday)
-        end_day = day + timedelta(days=1) if template.end_time <= template.start_time else day
+        starts_at, ends_at = shift_bounds(
+            day, template.start_time, template.end_time, get_settings().tz
+        )
         shift = Shift(
             template_id=template.id,
             week_start=week,
-            starts_at=local_to_utc(day, template.start_time),
-            ends_at=local_to_utc(end_day, template.end_time),
+            starts_at=starts_at,
+            ends_at=ends_at,
             required_staff=template.required_staff,
         )
         session.add(shift)
@@ -266,18 +268,12 @@ def work_segments(
 
 
 def day_segment(day: date, start: str, end: str) -> tuple[datetime, datetime]:
-    start_time, end_time = parse_hhmm(start), parse_hhmm(end)
-    end_day = day + timedelta(days=1) if end_time <= start_time else day
-    return local_to_utc(day, start_time), local_to_utc(end_day, end_time)
+    return shift_bounds(day, parse_hhmm(start), parse_hhmm(end), get_settings().tz)
 
 
 def parse_hhmm(value: str) -> time:
     hour, minute = value.split(":")
     return time(int(hour), int(minute))
-
-
-def local_to_utc(day: date, at: time) -> datetime:
-    return datetime.combine(day, at, tzinfo=get_settings().tz).astimezone(UTC)
 
 
 # --- entry point ---
