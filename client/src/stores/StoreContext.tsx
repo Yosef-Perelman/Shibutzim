@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
 import type { AuthStore } from './AuthStore';
+import type { AvailabilityStore } from './AvailabilityStore';
 import type { ScheduleStore } from './ScheduleStore';
 import type { RootStore } from './RootStore';
 
@@ -27,4 +28,8 @@ export function useAuthStore(): AuthStore {
 
 export function useScheduleStore(): ScheduleStore {
   return useRootStore().schedule;
+}
+
+export function useAvailabilityStore(): AvailabilityStore {
+  return useRootStore().availability;
 }

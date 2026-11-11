@@ -8,10 +8,18 @@ export interface WeekNavigatorProps {
   onPrevious: () => void;
   onNext: () => void;
   onToday?: () => void;
+  /** Stops navigation, e.g. while a form has unsaved changes. */
+  disabled?: boolean;
 }
 
 /** Previous / next week with the date range between them; "This week" appears when away from it. */
-export function WeekNavigator({ weekStart, onPrevious, onNext, onToday }: WeekNavigatorProps) {
+export function WeekNavigator({
+  weekStart,
+  onPrevious,
+  onNext,
+  onToday,
+  disabled,
+}: WeekNavigatorProps) {
   const isThisWeek = weekStart === currentWeekStart();
   return (
     <Group justify="space-between" wrap="nowrap" gap="xs">
@@ -29,12 +37,24 @@ export function WeekNavigator({ weekStart, onPrevious, onNext, onToday }: WeekNa
           {formatWeekRange(weekStart)}
         </Text>
         {!isThisWeek && onToday ? (
-          <Button variant="subtle" styles={{ root: { height: 36 } }} onClick={onToday}>
+          <Button
+            variant="subtle"
+            styles={{ root: { height: 36 } }}
+            disabled={disabled}
+            onClick={onToday}
+          >
             This week
           </Button>
         ) : null}
       </Group>
-      <ActionIcon variant="subtle" size={44} radius="xl" aria-label="Next week" onClick={onNext}>
+      <ActionIcon
+        variant="subtle"
+        size={44}
+        radius="xl"
+        aria-label="Next week"
+        disabled={disabled}
+        onClick={onNext}
+      >
         <IconChevronRight size={22} />
       </ActionIcon>
     </Group>

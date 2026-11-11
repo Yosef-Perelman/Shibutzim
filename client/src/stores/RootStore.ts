@@ -1,6 +1,7 @@
 import { ApiClient } from '../api/apiClient';
 import { createApi, type Api } from '../api';
 import { AuthStore } from './AuthStore';
+import { AvailabilityStore } from './AvailabilityStore';
 import { ScheduleStore } from './ScheduleStore';
 import { createLocalTokenStorage, type TokenStorage } from './tokenStorage';
 
@@ -26,6 +27,7 @@ export class RootStore {
   readonly api: Api;
   readonly auth: AuthStore;
   readonly schedule: ScheduleStore;
+  readonly availability: AvailabilityStore;
 
   constructor(options: RootStoreOptions = {}) {
     this.api =
@@ -45,5 +47,6 @@ export class RootStore {
       api: this.api,
       currentUserId: () => this.auth.user?.id ?? null,
     });
+    this.availability = new AvailabilityStore({ api: this.api });
   }
 }
