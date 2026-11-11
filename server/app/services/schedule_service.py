@@ -7,7 +7,7 @@ as the week's draft. A published schedule is never replaced by generating again.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -103,6 +103,25 @@ def get_schedule(session: Session, current_user: User, week_start: date) -> Sche
         raise NotFound(
             ErrorCode.schedule_not_found, f"There is no schedule for the week of {week_start}."
         )
+    return build_view(session, schedule)
+
+
+def publish_schedule(
+    session: Session, current_user: User, week_start: date, *, now: datetime
+) -> ScheduleView:
+    """Make the schedule visible to employees. Later edits are visible at once (no re-publish)."""
+    ensure_manager(current_user)
+    ensure_week_start(week_start)
+    schedule = schedule_repository.get_by_week(session, week_start)
+    if schedule is None:
+        raise NotFound(
+            ErrorCode.schedule_not_found, f"There is no schedule for the week of {week_start}."
+        )
+    if schedule.status is ScheduleStatus.published:
+        raise Conflict(ErrorCode.schedule_published, "This schedule is already published.")
+    schedule.status = ScheduleStatus.published
+    schedule.published_at = now
+    session.commit()
     return build_view(session, schedule)
 
 

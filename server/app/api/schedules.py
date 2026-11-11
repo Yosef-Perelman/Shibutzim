@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter
 
-from app.deps import CurrentUser, SessionDep
+from app.deps import CurrentUser, NowDep, SessionDep
 from app.schemas.schedule import (
     AssignmentCreate,
     AssignmentEditOut,
@@ -33,6 +33,13 @@ def generate_schedule(
     week_start: date, user: CurrentUser, session: SessionDep
 ) -> ScheduleGenerateOut:
     return generate_out(schedule_service.generate_schedule(session, user, week_start))
+
+
+@router.post("/{week_start}/publish")
+def publish_schedule(
+    week_start: date, user: CurrentUser, session: SessionDep, now: NowDep
+) -> ScheduleOut:
+    return schedule_out(schedule_service.publish_schedule(session, user, week_start, now=now))
 
 
 @router.post("/{week_start}/assignments", status_code=201)
