@@ -37,7 +37,7 @@ export type ActionResult =
   { ok: true; warnings: Warning[] } | { ok: false; code: string; message: string };
 
 export interface ScheduleStoreOptions {
-  api: Pick<Api, 'schedules' | 'shifts' | 'users'>;
+  api: Pick<Api, 'schedules' | 'shifts'> & { users: Pick<Api['users'], 'list'> };
   currentUserId: () => number | null;
   now?: () => Date;
 }

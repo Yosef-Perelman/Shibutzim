@@ -20,7 +20,7 @@ export function makeFakeApi(): FakeApi {
     Object.fromEntries(names.map((name) => [name, vi.fn()])) as Record<string, Mock>;
   return {
     auth: group('login', 'me'),
-    users: group('list'),
+    users: group('list', 'create', 'setActive'),
     shifts: group('list', 'generate'),
     availabilities: group('list', 'set'),
     schedules: group(
