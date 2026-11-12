@@ -9,9 +9,9 @@ from contextlib import nullcontext
 from datetime import timedelta
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 from mcp.client import Client
+from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -104,8 +104,8 @@ def test_each_tool_has_the_assistants_description_and_argument_schema(
 
     for tool in list_tools(session, manager):
         assert tool.description == definitions[tool.name].description
-        assert tool.inputSchema == definitions[tool.name].parameters
-        assert tool.inputSchema["type"] == "object"
+        assert tool.input_schema == definitions[tool.name].parameters
+        assert tool.input_schema["type"] == "object"
 
 
 # --- a call runs as the token's user ---
@@ -116,10 +116,10 @@ def test_a_call_returns_the_tool_result_as_json(session: Session, employee: User
 
     result = call(session, employee, "get_my_hours", {"from": "2026-03-09", "to": "2026-03-09"})
 
-    assert result.isError is False
+    assert result.is_error is False
     assert payload(result)["total_hours"] == "9.00"
     assert payload(result)["overtime_hours"] == "1.00"
-    assert result.structuredContent == payload(result)
+    assert result.structured_content == payload(result)
 
 
 def test_get_my_hours_matches_the_pay_endpoint(
@@ -163,7 +163,7 @@ def test_a_manager_tool_called_by_an_employee_is_refused_and_logged(
 ) -> None:
     result = call(session, employee, "get_team_hours", {"from": "2026-03-09", "to": "2026-03-15"})
 
-    assert result.isError is True
+    assert result.is_error is True
     assert payload(result)["error"]["code"] == "forbidden"
     assert [row.status for row in session.scalars(select(ToolCallLog))] == ["refused"]
 
@@ -171,7 +171,7 @@ def test_a_manager_tool_called_by_an_employee_is_refused_and_logged(
 def test_an_unknown_tool_is_an_error_result(session: Session, employee: User) -> None:
     result = call(session, employee, "delete_everything")
 
-    assert result.isError is True
+    assert result.is_error is True
     assert payload(result)["error"]["code"] == "unknown_tool"
 
 
@@ -180,7 +180,7 @@ def test_bad_arguments_are_an_error_result_the_client_can_read(
 ) -> None:
     result = call(session, employee, "get_my_hours", {"from": "yesterday", "to": "2026-03-15"})
 
-    assert result.isError is True
+    assert result.is_error is True
     assert payload(result)["error"]["code"] == "validation_error"
 
 
@@ -194,7 +194,7 @@ def test_a_missing_handbook_model_is_an_error_result_and_not_a_crash(
         session, employee, "search_policy", {"query": "overtime"}, llm_factory=unavailable
     )
 
-    assert result.isError is True
+    assert result.is_error is True
     assert "not available" in payload(result)["error"]["message"]
 
 
@@ -210,7 +210,7 @@ def test_a_schedule_draft_is_returned_as_a_proposal_and_saves_nothing(
 
     result = call(session, manager, "generate_schedule_draft", {"week_start": WEEK})
 
-    assert result.isError is False
+    assert result.is_error is False
     proposal = payload(result)["proposal"]
     assert proposal["type"] == "schedule_draft"
     assert proposal["week_start"] == WEEK
@@ -230,17 +230,23 @@ def test_a_garbage_token_is_an_error_result_for_a_call(session: Session) -> None
 
     result = asyncio.run(go())
 
-    assert result.isError is True
+    assert result.is_error is True
     assert payload(result)["error"]["code"] == "invalid_token"
 
 
 def test_a_garbage_token_cannot_list_tools(session: Session) -> None:
     async def go():
         async with Client(server_for(session, "not-a-token")) as client:
-            return await client.list_tools()
+            try:
+                await client.list_tools()
+            except MCPError as error:
+                return error
+            return None
 
-    with pytest.raises(Exception, match="Invalid authentication token"):
-        asyncio.run(go())
+    error = asyncio.run(go())
+
+    assert error is not None
+    assert error.message == "Invalid authentication token."
 
 
 def test_deactivating_the_user_cuts_the_token_off_on_the_next_call(
@@ -250,6 +256,6 @@ def test_deactivating_the_user_cuts_the_token_off_on_the_next_call(
     user_service.set_user_active(session, manager, employee.id, is_active=False)
     after = call(session, employee, "get_my_hours", {"from": "2026-03-09", "to": "2026-03-09"})
 
-    assert before.isError is False
-    assert after.isError is True
+    assert before.is_error is False
+    assert after.is_error is True
     assert payload(after)["error"]["code"] == "invalid_token"

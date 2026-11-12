@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     assistant_embedding_model: str = "gemini-embedding-001"
     assistant_max_steps: int = Field(default=6, ge=1)
     assistant_timeout_seconds: int = Field(default=30, ge=1)
+    # The access token the MCP server acts with (plan 005). Get one from POST /api/auth/login.
+    shibutzim_mcp_token: str = ""
 
     @property
     def pay_rules(self) -> PayRules:
