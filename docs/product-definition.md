@@ -39,7 +39,7 @@ grounded in the data and the policy document.
 
 | Role | Where | Can do |
 |---|---|---|
-| **Manager** | web (desktop) | define shift templates and required staff; generate the weekly schedule; edit and publish it; see everyone's hours and pay; add or correct time entries; ask the assistant team-level questions |
+| **Manager** | web (desktop) | define shift templates and required staff; generate the weekly schedule; edit and publish it; see everyone's hours and pay; add or correct time entries; add people to the team and deactivate them; ask the assistant team-level questions |
 | **Employee** | web (mobile-friendly) | submit weekly availability; see everyone's published schedule; clock in and out; see own hours and pay; ask the assistant about own data and policies |
 
 **Roles are enforced on the server, in the service layer.** The client only hides what a role may not use; it is
@@ -135,6 +135,21 @@ Acceptance criteria:
 - The assistant refuses, with a clear message, anything outside its tools or outside the user's role.
 - Every tool call is logged with tool name, arguments, user, duration and result size.
 - Conversation state is held by the client in v1 (the client sends the history with each message).
+
+### 5.6 Team
+
+A manager keeps the list of people who can sign in.
+
+Acceptance criteria:
+
+- A manager **adds a person** with a name, an email, a role (employee by default), an hourly rate and an initial
+  password of 8 to 72 bytes that the manager passes on. The email is unique, even among deactivated people.
+- A manager **deactivates** a person who left, and can **reactivate** them. A deactivated person cannot sign in, an
+  existing session ends at the next request, they are not scheduled, and their time entries, assignments and pay
+  history stay.
+- A manager cannot deactivate themself, so a team always has someone who can manage it.
+- There is no self-service sign-up, no password reset and no way to change a person's rate or role after creation
+  (a rate change would have to say what happens to hours already worked).
 
 ## 6. Business rules
 

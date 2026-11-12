@@ -4,6 +4,7 @@ import type { AssistantStore } from './AssistantStore';
 import type { AuthStore } from './AuthStore';
 import type { AvailabilityStore } from './AvailabilityStore';
 import type { PayStore } from './PayStore';
+import type { TeamStore } from './TeamStore';
 import type { TimeStore } from './TimeStore';
 import type { ScheduleStore } from './ScheduleStore';
 import type { RootStore } from './RootStore';
@@ -39,6 +40,10 @@ export function useAvailabilityStore(): AvailabilityStore {
 
 export function usePayStore(): PayStore {
   return useRootStore().pay;
+}
+
+export function useTeamStore(): TeamStore {
+  return useRootStore().team;
 }
 
 export function useTimeStore(): TimeStore {

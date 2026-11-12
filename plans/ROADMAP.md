@@ -12,7 +12,7 @@ Workflow details: [AGENTS.md](../AGENTS.md#plan-to-plan-workflow) and
 | **002** | done | [002-2026-11-11-shifts-availability-scheduler.md](002-2026-11-11-shifts-availability-scheduler.md) | Shift-template CRUD and weekly shift generation (open question 11 of plan 001), availability endpoints, **CSP scheduler** (TDD, with a trace/explain mode), generate / edit / publish schedule; then the `debug-schedule` skill |
 | **003** | done | [003-2026-11-11-design-system-client.md](003-2026-11-11-design-system-client.md) | **Design system first**: Yosef's reference screenshots (local, git-ignored, in `design/references/`) → `docs/design-system.md` (colors, typography, spacing, radius, component do's and don'ts) + Mantine theme + a static style preview Yosef approves before any screen. Then the client: login + role switch, my shifts, availability form, manager schedule board, pay page (React + TS + MobX) |
 | **004** | done | [004-2026-11-11-assistant-handbook-evals.md](004-2026-11-11-assistant-handbook-evals.md) | Assistant: agent loop, tools, confirmation flow, tool-call logging, handbook RAG, evals |
-| **005** | todo | – | Dockerfile + GitHub Actions (lint + tests on PR, deploy) → **GCP Cloud Run** (DB stays managed: Supabase / Neon); **MCP server** (official Python SDK / FastMCP, exposing the same services – "same core, two interfaces: REST and MCP"); PWA |
+| **005** | in progress | [005-2026-11-12-deploy-mcp-pwa.md](005-2026-11-12-deploy-mcp-pwa.md) | Dockerfile + GitHub Actions (lint + tests on PR, deploy) → **GCP Cloud Run** (DB stays managed: Supabase / Neon); **MCP server** (official Python SDK / FastMCP, exposing the same services – "same core, two interfaces: REST and MCP"); PWA |
 
 Plan 005 is part of the roadmap, not optional.
 

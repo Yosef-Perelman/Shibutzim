@@ -5,6 +5,7 @@ import { AuthStore } from './AuthStore';
 import { AvailabilityStore } from './AvailabilityStore';
 import { PayStore } from './PayStore';
 import { ScheduleStore } from './ScheduleStore';
+import { TeamStore } from './TeamStore';
 import { TimeStore } from './TimeStore';
 import { createLocalTokenStorage, type TokenStorage } from './tokenStorage';
 
@@ -15,14 +16,20 @@ export interface RootStoreOptions {
   demoUsers?: string[];
 }
 
-/** Demo accounts come from `VITE_DEMO_USERS` (comma-separated emails) and only in development. */
-function configuredDemoUsers(): string[] {
-  if (!import.meta.env.DEV) return [];
-  const raw = import.meta.env.VITE_DEMO_USERS ?? '';
-  return raw
+/** The emails of a comma-separated list; blank entries and spaces are dropped. */
+export function parseDemoUsers(raw: string | undefined): string[] {
+  return (raw ?? '')
     .split(',')
     .map((email) => email.trim())
     .filter(Boolean);
+}
+
+/**
+ * Demo accounts exist wherever `VITE_DEMO_USERS` was set when the client was built: a developer's
+ * `.env.local`, or the Docker build of the public demo. Left empty, no switch is offered.
+ */
+function configuredDemoUsers(): string[] {
+  return parseDemoUsers(import.meta.env.VITE_DEMO_USERS);
 }
 
 /** One store per domain, created once and shared through React context (architecture §9). */
@@ -32,6 +39,7 @@ export class RootStore {
   readonly schedule: ScheduleStore;
   readonly availability: AvailabilityStore;
   readonly pay: PayStore;
+  readonly team: TeamStore;
   readonly time: TimeStore;
   readonly assistant: AssistantStore;
 
@@ -55,6 +63,7 @@ export class RootStore {
     });
     this.availability = new AvailabilityStore({ api: this.api });
     this.pay = new PayStore({ api: this.api });
+    this.team = new TeamStore({ api: this.api });
     this.time = new TimeStore({ api: this.api });
     this.assistant = new AssistantStore({ api: this.api });
   }

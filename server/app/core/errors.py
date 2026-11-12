@@ -19,6 +19,7 @@ class ErrorCode(StrEnum):
     shift_not_in_week = "shift_not_in_week"
     no_shifts_for_week = "no_shifts_for_week"
     user_not_assignable = "user_not_assignable"
+    cannot_deactivate_self = "cannot_deactivate_self"
     # 401
     invalid_credentials = "invalid_credentials"
     invalid_token = "invalid_token"
@@ -41,6 +42,7 @@ class ErrorCode(StrEnum):
     already_assigned = "already_assigned"
     shift_overlap = "shift_overlap"
     min_rest_violation = "min_rest_violation"
+    email_already_used = "email_already_used"
     # 500
     internal_error = "internal_error"
     # 503

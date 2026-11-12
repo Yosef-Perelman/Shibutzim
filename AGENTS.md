@@ -43,6 +43,7 @@ enough to continue exactly where work stopped. Project state lives in files, not
 | Task | Read |
 |---|---|
 | Understand the product or a business rule | [docs/product-definition.md](docs/product-definition.md) |
+| Deploy, CI, Cloud Run, Supabase, secrets, rollback | [docs/deployment.md](docs/deployment.md), architecture §10 |
 | Any server code | [docs/architecture.md](docs/architecture.md) §3–§7, [coding-rules](docs/rules/coding-rules.md), [naming-rules](docs/rules/naming-rules.md) |
 | New or changed endpoint | + [error-handling-rules](docs/rules/error-handling-rules.md), [testing-rules](docs/rules/testing-rules.md); follow `/new-endpoint` |
 | Models, migrations, queries, seed | + [database-rules](docs/rules/database-rules.md), architecture §5 |
@@ -119,6 +120,10 @@ Server commands run from `server/`, client commands from `client/`; `docker comp
 | Scheduler matrix, by name | `uv run pytest tests/unit/scheduler -v` |
 | Lint and format | `uv run ruff check --fix . && uv run ruff format .` |
 | Client dev server | `cd client && npm run dev` (API on port 8000; Vite proxies `/api`; see `client/.env.example`) |
+| Production image locally | `docker compose --profile app up -d --build` (repo root; app at http://localhost:8080, same database) |
+| MCP server (stdio; needs `SHIBUTZIM_MCP_TOKEN`) | `cd server && uv run python -m app.mcp` |
+| Regenerate the PWA icons from `client/public/icon.svg` | `cd client && npm run icons` |
+| Release | merge to `main`, then `git push origin main`; CI deploys (see [docs/deployment.md](docs/deployment.md)) |
 | Client checks | `cd client && npm run lint && npm run typecheck && npm test` |
 | Client build, format | `cd client && npm run build` · `npm run format` |
 | Ingest the handbook (needs `GEMINI_API_KEY`) | `uv run python scripts/ingest_handbook.py` |

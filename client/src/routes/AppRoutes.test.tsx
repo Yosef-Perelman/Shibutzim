@@ -81,6 +81,19 @@ describe('role routes', () => {
     expect(screen.queryByRole('link', { name: 'Availability' })).not.toBeInTheDocument();
   });
 
+  it('lets a manager open the Team screen from the navigation', async () => {
+    await renderAt('/manager/team', manager);
+    expect(await screen.findByRole('heading', { name: 'Team' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument();
+  });
+
+  it('sends an employee away from the Team screen', async () => {
+    await renderAt('/manager/team', employee);
+    expect(await screen.findByRole('heading', { name: 'My shifts' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Team' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument();
+  });
+
   it('sends a logged-in person away from the login screen to their home', async () => {
     await renderAt('/login', manager);
     expect(await screen.findByRole('heading', { name: 'Schedule' })).toBeInTheDocument();

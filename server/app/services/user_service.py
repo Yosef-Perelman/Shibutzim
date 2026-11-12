@@ -1,12 +1,69 @@
-"""Listing users for managers (the schedule board's employee picker, plan 003)."""
+"""Listing, adding and deactivating users: managers only (plans 003 and 005)."""
 
+from decimal import Decimal
+
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.enums import Role
-from app.core.errors import ErrorCode, ValidationFailed
+from app.core.errors import Conflict, ErrorCode, ValidationFailed
+from app.core.security import hash_password
 from app.models import User
 from app.repositories import user_repository
+from app.services.auth_service import normalize_email
 from app.services.authorization import ensure_manager
+from app.services.users import get_user_or_404
+
+EMAIL_UNIQUE_INDEX = "uq_users_email"
+EMAIL_TAKEN_MESSAGE = "Another person already uses this email."
+CANNOT_DEACTIVATE_SELF_MESSAGE = "You cannot deactivate your own account."
+
+
+def create_user(
+    session: Session,
+    current_user: User,
+    *,
+    email: str,
+    name: str,
+    role: Role,
+    hourly_rate: Decimal,
+    password: str,
+) -> User:
+    """Managers only: add a person who can sign in with the initial `password`."""
+    ensure_manager(current_user)
+    email = normalize_email(email)
+    if user_repository.get_by_email(session, email):
+        raise Conflict(ErrorCode.email_already_used, EMAIL_TAKEN_MESSAGE)
+
+    user = User(
+        email=email,
+        password_hash=hash_password(password),
+        name=name.strip(),
+        role=role,
+        hourly_rate=hourly_rate,
+        is_active=True,
+    )
+    try:
+        with session.begin_nested():
+            user_repository.add(session, user)
+    except IntegrityError as error:
+        # Two simultaneous requests can both pass the check above; the unique index stops one.
+        if EMAIL_UNIQUE_INDEX in str(error.orig):
+            raise Conflict(ErrorCode.email_already_used, EMAIL_TAKEN_MESSAGE) from error
+        raise
+    session.commit()
+    return user
+
+
+def set_user_active(session: Session, current_user: User, user_id: int, *, is_active: bool) -> User:
+    """Managers only: deactivate or reactivate a person; history stays, sign-in stops."""
+    ensure_manager(current_user)
+    user = get_user_or_404(session, user_id)
+    if user.id == current_user.id and not is_active:
+        raise ValidationFailed(ErrorCode.cannot_deactivate_self, CANNOT_DEACTIVATE_SELF_MESSAGE)
+    user.is_active = is_active
+    session.commit()
+    return user
 
 
 def list_users(

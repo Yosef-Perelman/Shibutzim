@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     jwt_expires_hours: int = Field(default=8, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     timezone: str = "Asia/Jerusalem"
+    # Where the built client lives. Absent in development, where Vite serves it (plan 005).
+    static_dir: Path = REPO_ROOT / "server" / "static"
     seed_password: str = "shibutzim-demo"  # shared by every seeded demo user (scripts/seed.py)
     scheduler_min_rest_hours: float = Field(default=8, ge=0)
     scheduler_max_shifts_per_week: int = Field(default=5, ge=1)
@@ -38,6 +40,8 @@ class Settings(BaseSettings):
     assistant_embedding_model: str = "gemini-embedding-001"
     assistant_max_steps: int = Field(default=6, ge=1)
     assistant_timeout_seconds: int = Field(default=30, ge=1)
+    # The access token the MCP server acts with (plan 005). Get one from POST /api/auth/login.
+    shibutzim_mcp_token: str = ""
 
     @property
     def pay_rules(self) -> PayRules:

@@ -8,6 +8,7 @@ import { LoginScreen } from '../features/auth/LoginScreen';
 import { StylePreview } from '../features/design/StylePreview';
 import { AvailabilityForm } from '../features/me/AvailabilityForm';
 import { ScheduleBoard } from '../features/manager/ScheduleBoard';
+import { Team } from '../features/manager/Team';
 import { TeamPay } from '../features/manager/TeamPay';
 import { MyPay } from '../features/me/MyPay';
 import { MyShifts } from '../features/me/MyShifts';
@@ -57,6 +58,7 @@ export const AppRoutes = observer(function AppRoutes() {
         <Route path="/me/assistant" element={<AssistantScreen />} />
         <Route path="/manager" element={<RequireManager />}>
           <Route path="schedule" element={<ScheduleBoard />} />
+          <Route path="team" element={<Team />} />
           <Route path="pay" element={<TeamPay />} />
         </Route>
       </Route>

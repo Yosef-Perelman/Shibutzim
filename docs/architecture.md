@@ -14,6 +14,7 @@
 | Auth | email + password (bcrypt), JWT carrying the role; checked on the server | simple and sufficient; OAuth adds nothing for a single-organization demo |
 | AI | one `llm` interface (chat with tool calling + embeddings); provider: **Gemini** | the provider is swappable; the product logic never imports a vendor SDK directly |
 | Quality | pytest, ruff, `evals/` for the assistant | fast feedback; the assistant is tested like code |
+| Delivery | Docker, GitHub Actions, **GCP Cloud Run**, Supabase PostgreSQL | one image, free-tier friendly, deployed on every push to `main` ([deployment.md](deployment.md)) |
 
 ## 2. System overview
 
@@ -26,6 +27,7 @@ flowchart LR
   end
 
   Stores -->|REST /api, JWT| Routers
+  Claude[Claude Code / Desktop] -->|MCP over stdio, token| MCP
 
   subgraph server [Server - FastAPI]
     Routers[Routers - HTTP only]
@@ -35,6 +37,7 @@ flowchart LR
     Sched[scheduler/ - pure]
     Agent[Assistant agent loop]
     Tools[Assistant tools]
+    MCP[MCP server]
     LLM[llm adapter]
     Routers --> Services
     Services --> Repos
@@ -43,6 +46,7 @@ flowchart LR
     Routers --> Agent
     Agent <--> LLM
     Agent --> Tools
+    MCP --> Tools
     Tools --> Services
   end
 
@@ -52,9 +56,10 @@ flowchart LR
 
 Reading the diagram:
 
-- **Everything goes through services.** The REST routers and the assistant tools are two thin entry points over the
-  same service layer, so authorization and business rules exist once. A later MCP server is a third entry point over
-  the same services ("same core, several interfaces").
+- **Everything goes through services.** The REST routers, the assistant tools and the MCP server are thin entry
+  points over the same service layer, so authorization and business rules exist once ("same core, two interfaces:
+  REST and MCP"). The MCP server reuses the assistant's tools and their dispatcher, so the chat and an MCP client
+  can never disagree about what a role may do.
 - **`pay/` and `scheduler/` are pure modules**: data in, result out, no database, HTTP or LLM. They are unit-tested
   exhaustively and called by services.
 - **The LLM is a peripheral**, not the center. It decides which tool to call and how to phrase the answer; it never
@@ -69,6 +74,7 @@ Reading the diagram:
 | **Repositories** | `server/app/repositories/` | run SQLAlchemy queries; map rows to models | know about users, roles or business rules |
 | **Pure modules** | `server/app/pay/`, `server/app/scheduler/` | use the standard library and plain data types / schemas | import SQLAlchemy, FastAPI, the `llm` adapter or anything with I/O |
 | **Assistant tools** | `server/app/assistant/tools/` | call services as the current user; shape results for the model | call repositories or the DB directly; perform writes (they return proposals) |
+| **MCP server** | `server/app/mcp/` | list and call the assistant's tools as the user behind one token, through `dispatch.call_tool` | contain business logic; import models or repositories; write (it returns proposals) |
 | **`llm` adapter** | `server/app/assistant/llm/` | wrap one provider behind `chat(messages, tools)` and `embed(texts)` | contain product logic or prompts |
 | **Prompts** | `server/app/assistant/prompts/` | plain text / markdown files loaded at startup | be inline strings in Python |
 
@@ -81,7 +87,9 @@ shibutzim/
   AGENTS.md                 agent instructions index (CLAUDE.md just points here)
   CLAUDE.md
   README.md
-  docker-compose.yml        local Postgres with pgvector
+  docker-compose.yml        local Postgres with pgvector; `--profile app` also runs the production image
+  Dockerfile                one image: the built client and the API (docs/deployment.md)
+  docker/                   start.sh (migrate, then serve), initdb/ (the test database)
   docs/
     product-definition.md  architecture.md  glossary.md
     rules/                  planning, coding, database, error-handling, naming, style, testing, ui, git
@@ -90,13 +98,15 @@ shibutzim/
     NNN-YYYY-MM-DD-name.md  one file per plan
   .claude/
     settings.json  hooks/  agents/  skills/
-  .github/workflows/
+  .github/workflows/ci.yml  checks on every PR and push to main; deploy on main
   server/
     app/
       main.py               FastAPI app, routers, error handlers
       config.py             pydantic-settings (env vars; .env.example documents them)
       db.py                 engine, session factory
       deps.py               FastAPI dependencies (db session, current user)
+      static_client.py      serves the built client (index fallback, cache headers) when STATIC_DIR exists
+      mcp/                  MCP server over the assistant tools (stdio): server.py, __main__.py
       api/                  routers: auth, users, shift_templates, shifts, availabilities,
                             schedules, time_entries, pay, assistant
       schemas/              Pydantic request/response models
@@ -124,9 +134,10 @@ shibutzim/
     handbook/               the employee handbook (markdown)
     pyproject.toml
   client/
+    public/                 icon.svg and the generated PWA icons
     src/
       api/                  typed API client + DTOs
-      stores/               MobX stores (auth, schedule, availability, time, pay, assistant)
+      stores/               MobX stores (auth, schedule, availability, time, pay, team, assistant)
       features/             one folder per screen area
       components/           shared components
       routes/               routing split by role
@@ -225,6 +236,28 @@ values from that run's tool results, and citations or refusals. The run is limit
 are spaced apart, capped, never retried on a provider error, and a failing case is retried only with `--retries`.
 `--only` runs chosen cases.
 
+### 6.8 Team
+
+1. `POST /api/users` (managers only) validates the input, rejects an email already used by anyone, deactivated
+   people included (`409 email_already_used`, also when two requests race, through the unique index), hashes the
+   initial password and stores the person.
+2. `PATCH /api/users/{id}` sets `is_active`. `authenticate_token` loads the user on every request, so a
+   deactivated person's token stops working at once; login, the scheduler's employee list and the assistant's
+   name lookup all skip them. A manager cannot deactivate themself (`422 cannot_deactivate_self`).
+3. People are deactivated, never deleted: time entries, assignments and tool-call logs keep pointing at them.
+
+### 6.9 MCP server
+
+1. `uv run python -m app.mcp` reads `SHIBUTZIM_MCP_TOKEN`, checks it once (a wrong token is a message on stderr and
+   exit code 2) and serves MCP over stdio.
+2. `tools/list` authenticates the token on that request and returns `registry.definitions_for_role(user.role)`:
+   the same descriptions and argument schemas the model gets in the chat, so a role sees only its own tools.
+3. `tools/call` authenticates again, then runs `dispatch.call_tool` as that user: role check, argument validation,
+   the tool, one `tool_call_logs` row. The result is JSON text plus structured content; refusals, bad arguments and
+   domain errors come back with `isError`. A write tool's proposal is part of the result and nothing is saved.
+4. A deactivated user cuts a running server off at the next request. The model adapter is built only when a tool
+   needs it, so without a Gemini key every tool except `search_policy` works.
+
 ## 7. Cross-cutting conventions
 
 - **Configuration**: `pydantic-settings` reads environment variables; `.env.example` lists every variable with a
@@ -254,6 +287,11 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
   additionally filtered by role before they reach the model, so a manager-only tool is not even visible to an
   employee.
 - No secrets in code or prompts; `.env` is excluded from version control and from agent tooling.
+- The MCP server is another way to act as a user, with the same checks: one token, validated against the database
+  on every request, and the same service-level authorization. The token is a credential: it lives in the MCP
+  client's environment and expires after eight hours like any other.
+- In production the secrets (`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`) live in Secret Manager. GitHub holds no
+  cloud key: Workload Identity Federation lets only this repository's `main` branch deploy.
 
 ## 9. Client architecture
 
@@ -262,8 +300,8 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
   client later; `VITE_API_URL` points the client at another host.
 - **MobX**: one store per domain, created once by a `RootStore` and shared through a React context –
   `AuthStore` (token, user, login, logout, demo-user switch), `ScheduleStore` (a week's schedule, the manager's
-  board and its actions), `AvailabilityStore`, `TimeStore` (clock in / out), `PayStore`, `AssistantStore` (plan
-  004). Stores own server state and async actions; components observe and never call `fetch`.
+  board and its actions), `AvailabilityStore`, `TimeStore` (clock in / out), `PayStore`, `TeamStore` (the people of
+  the team: add, deactivate, reactivate), `AssistantStore` (plan 004). Stores own server state and async actions; components observe and never call `fetch`.
 - **API client** (`client/src/api/`): one `ApiClient` is the only caller of `fetch`; one module per resource, DTOs
   in `api/types/` mirroring the server schemas (snake_case fields, money as strings). Errors become a typed
   `ApiError { status, code, message, details }`.
@@ -283,20 +321,32 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
 - **Routes** split by role: `/me/*` for everyone signed in, `/manager/*` for managers only, guarded by the store's
   role; an employee on a manager address, and anyone on an unknown address, is sent to their home. The server is
   still the real guard.
+- **Team screen**: `/manager/team`. `TeamStore` loads everyone (active or not), adds a person through a dialog
+  whose field errors come from the client's checks and whose `409` lands on the email field, and deactivates after a
+  confirmation or reactivates straight away. The signed-in manager has no deactivate button on their own row.
+- **PWA**: a web manifest, generated icons and a service worker that precaches the app shell (`generateSW`, auto
+  update). `/api` is excluded from the navigation fallback and has no runtime cache, so signed-in data is never
+  served from a cache. Unit tests build without the plugin.
 - **Assistant UI**: a screen at `/me/assistant` for both roles. `AssistantStore` holds the conversation and sends
   it within the server's limits; answers show handbook citations and what was looked at; a proposal renders
   Confirm / Cancel, and Confirm calls the normal generate endpoint through the store.
 
 ## 10. Deployment and operations
 
-Planned for the last roadmap plan; designed for from the start:
+Runbook and one-time setup: [deployment.md](deployment.md).
 
-- **One container** (Dockerfile) runs FastAPI and serves the built client as static files. Simplest unit to deploy
-  on **GCP Cloud Run**.
-- **Managed PostgreSQL with pgvector** (Supabase or Neon) in production; Docker Compose locally.
-- **GitHub Actions**: lint (ruff, tsc) and tests (pytest, client tests) on every pull request; deploy on `main`.
-- **MCP server** (official Python SDK) exposing the same services as tools – a second interface over one core.
-- **PWA** manifest and service worker so the employee app installs on a phone home screen.
+- **One container** (`Dockerfile`, two stages): Node builds the client, a slim Python image runs FastAPI, which
+  serves the API and the built client from one origin (`STATIC_DIR`) as a non-root user. `docker/start.sh` runs
+  `alembic upgrade head` and then Uvicorn. It runs on **GCP Cloud Run**, scaled to zero and capped at two instances.
+- **Managed PostgreSQL with pgvector**: Supabase through its session pooler, in the same region as Cloud Run.
+  Docker Compose locally (`docker compose --profile app up` also runs the production image).
+- **GitHub Actions** (`.github/workflows/ci.yml`): on every pull request and push to `main`, the server job (ruff,
+  migrations and `alembic check`, pytest against a pgvector service), the client job (lint, Prettier, typecheck,
+  tests, build) and an image build. A push to `main` then deploys: Workload Identity Federation, image to Artifact
+  Registry, Cloud Run with secrets from Secret Manager, and a health check of the new revision.
+- **MCP server** (official Python SDK): `uv run python -m app.mcp`, stdio, run on a developer's machine against the
+  database named by `DATABASE_URL`. It is not deployed (§6.9).
+- **PWA**: the client installs on a phone home screen (§9).
 
 ## 11. Decision log
 
@@ -323,3 +373,13 @@ Planned for the last roadmap plan; designed for from the start:
 | Tools resolve people by name, shifts by day and name | ids in tool arguments | the model never sees ids it could invent; ambiguity becomes an error that asks which one |
 | Evals run on demand with a call budget | evals in CI | they need a key and the provider's quota is limited; the budget, the spacing and no retries on provider errors keep a run cheap |
 | The chat model is a setting (`gemini-3.1-flash-lite`) | a fixed model in code | provider model names are retired without notice; plan 004 found `gemini-2.5-flash` gone, `gemini-3.8-flash` and `gemini-3.5-flash` timing out, and the lite model answering every call |
+| One container serves the API and the client | a static host for the client next to the API | one origin (no CORS, no second deployment), one image to build and roll back, and the same shape runs locally with `--profile app` |
+| Migrations at container start | a separate Cloud Run job, a manual step | one revision serves a demo and Alembic's lock makes simultaneous cold starts safe; a job is the answer for several instances under real load |
+| Supabase through the session pooler | the direct host, transaction pooler, Cloud SQL, Neon | free at demo size; Cloud Run has no IPv6 egress, which rules out the direct host, and transaction mode breaks prepared statements; Cloud SQL has no free tier |
+| Workload Identity Federation for GitHub | a service-account JSON key in a secret | no long-lived cloud key exists to leak, and the provider only accepts this repository's `main` branch |
+| Two service accounts (runtime, deployer) | one account for everything | the running container cannot deploy and the deployer has no direct read access to secret values |
+| MCP on the official SDK's low-level `Server`, stdio only | `MCPServer` decorators, the third-party `fastmcp`, HTTP transport on Cloud Run | the tool names, descriptions and schemas already exist in the registry, so there is nothing to re-declare; stdio is what Claude Code and Desktop run locally and adds no public authentication surface |
+| The MCP token is a JWT in the environment, checked on every request | email and password in the environment, a new token type | no new credential type, and deactivating the user cuts the server off at once |
+| Service worker precaches the shell only | runtime caching of API responses, offline mode | every screen needs the server, and a cache of signed-in data would outlive a logout |
+| People are deactivated, never deleted; rate and role are not editable | delete users, an edit form | history (time entries, assignments, logs) keeps its owner; changing a rate would silently change what past hours are worth |
+| The demo switch follows `VITE_DEMO_USERS` at build time | development only | the public demo needs it and a real customer build leaves the variable empty; one switch, no environment sniffing |
