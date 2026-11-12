@@ -17,6 +17,9 @@ __pycache__/
 htmlcov/
 *.egg-info/
 
+# Built client copied next to the API (Docker build, or a local smoke test)
+server/static/
+
 # Node / client
 node_modules/
 dist/

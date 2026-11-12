@@ -1,6 +1,7 @@
 """FastAPI application: routers, CORS and the error handlers that give every error one shape."""
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -21,6 +22,7 @@ from app.api import (
 )
 from app.config import get_settings
 from app.core.errors import DomainError, ErrorCode, Unauthorized, error_body
+from app.static_client import mount_client
 
 logger = logging.getLogger("app")
 
@@ -34,7 +36,8 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def create_app() -> FastAPI:
+def create_app(static_dir: Path | None = None) -> FastAPI:
+    """The API, plus the built client when `static_dir` (default: the setting) holds one."""
     application = FastAPI(title="Shibutzim API", version="0.1.0")
     application.add_middleware(
         CORSMiddleware,
@@ -54,6 +57,7 @@ def create_app() -> FastAPI:
     application.include_router(schedules.router)
     application.include_router(users.router)
     application.include_router(assistant.router)
+    mount_client(application, static_dir or get_settings().static_dir)
     return application
 
 
