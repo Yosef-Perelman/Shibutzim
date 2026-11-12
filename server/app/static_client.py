@@ -23,7 +23,7 @@ def mount_client(application: FastAPI, static_dir: Path) -> None:
     if not index.is_file():
         return
 
-    @application.get("/{path:path}", include_in_schema=False)
+    @application.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def serve_client(path: str) -> FileResponse:
         if path == API_PREFIX or path.startswith(f"{API_PREFIX}/"):
             raise HTTPException(status_code=404)

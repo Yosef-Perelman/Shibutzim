@@ -39,6 +39,14 @@ def test_an_app_address_returns_the_index_page(site: TestClient, path: str) -> N
     assert response.text == INDEX_HTML
 
 
+@pytest.mark.parametrize("path", ["/", "/me/shifts", "/assets/app-abc123.js"])
+def test_a_head_request_gets_the_headers_without_a_body(site: TestClient, path: str) -> None:
+    response = site.head(path)
+
+    assert response.status_code == 200
+    assert response.content == b""
+
+
 def test_the_index_page_is_never_cached(site: TestClient) -> None:
     response = site.get("/")
 
