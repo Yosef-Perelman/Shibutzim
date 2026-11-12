@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     scheduler_max_steps: int = Field(default=200_000, ge=1)
     # Assistant (plan 004). An empty key makes the assistant unavailable, not the server.
     gemini_api_key: str = ""
-    assistant_chat_model: str = "gemini-3.5-flash"
+    assistant_chat_model: str = "gemini-3.1-flash-lite"
     assistant_embedding_model: str = "gemini-embedding-001"
     assistant_max_steps: int = Field(default=6, ge=1)
     assistant_timeout_seconds: int = Field(default=30, ge=1)

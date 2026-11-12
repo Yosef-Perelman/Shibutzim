@@ -322,4 +322,4 @@ Planned for the last roadmap plan; designed for from the start:
 | A write tool's proposal travels beside the model's result | feed the full proposal to the model | the model gets a compact summary, the UI gets the details, and the model cannot misstate what is saved |
 | Tools resolve people by name, shifts by day and name | ids in tool arguments | the model never sees ids it could invent; ambiguity becomes an error that asks which one |
 | Evals run on demand with a call budget | evals in CI | they need a key and the provider's quota is limited; the budget, the spacing and no retries on provider errors keep a run cheap |
-| The chat model is a setting (`gemini-3.5-flash`) | a fixed model in code | provider model names are retired without notice; plan 004 found `gemini-2.5-flash` gone and `gemini-3.8-flash` timing out |
+| The chat model is a setting (`gemini-3.1-flash-lite`) | a fixed model in code | provider model names are retired without notice; plan 004 found `gemini-2.5-flash` gone, `gemini-3.8-flash` and `gemini-3.5-flash` timing out, and the lite model answering every call |

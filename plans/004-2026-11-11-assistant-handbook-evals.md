@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | in progress |
+| **Status** | done |
 | **Date** | 2026-11-11 |
 | **Related docs** | [product-definition.md](../docs/product-definition.md) §5.5, §6.2, §7 · [architecture.md](../docs/architecture.md) §3, §4, §6.4–§6.6, §7–§9, §11 · [glossary.md](../docs/glossary.md) "Assistant", "Scheduling" · rules: [coding](../docs/rules/coding-rules.md) ("Assistant code"), [error-handling](../docs/rules/error-handling-rules.md), [database](../docs/rules/database-rules.md), [testing](../docs/rules/testing-rules.md), [ui](../docs/rules/ui-rules.md), [design-system](../docs/design-system.md), [git](../docs/rules/git-rules.md) · subagents: backend, frontend, qa · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 004 of 005 |
@@ -249,17 +249,18 @@ Each step is one commit unless noted; tests precede the code they test (`test:` 
 
 ## What changed vs. plan
 
-**Outcome (interim, not closed).** Every scope item is built and committed on the branch. The server has 980
-tests and the client 193; ruff, `alembic check`, the client lint, typecheck and build are clean. The plan stays
-`in progress` because two validation items could not be completed today: the real-model eval run has not passed
-all fifteen cases in one run, and the 375 px browser check was not run. Both are listed under "Left to do".
+**Outcome.** Every scope item is built and committed on the branch. The server has 980 tests and the client 193;
+ruff, `alembic check`, the client lint, typecheck and build are clean. Yosef checked the screens in a browser and
+they look good; the assistant itself answered "not available" there because the default model timed out, which led
+to the lite model becoming the default. The plan is closed with the real-model checks deferred at Yosef's request
+(see Deferred).
 
 ### Deviations
 
 | What | Why | Effect |
 |---|---|---|
 | `google-genai` is pinned to **2.33.0**, not the newest 3.2.0. | 3.2.0 was published the day it was installed; plan 003's rule is a release at least two weeks old. | `server/pyproject.toml`. |
-| The chat model default is **`gemini-3.5-flash`**, not `gemini-2.5-flash`. | The API says 2.5 is no longer available to new users, and `gemini-3.8-flash` timed out on every call, even a plain one. | One setting in `config.py` and `.env.example`. |
+| The chat model default is **`gemini-3.1-flash-lite`**, not `gemini-2.5-flash`. | The API says 2.5 is no longer available to new users; `gemini-3.8-flash` timed out on every call and `gemini-3.5-flash` timed out when Yosef opened the app. The lite model answered all 12 calls. | One setting in `config.py` and `.env.example`. |
 | The free tier allows **5 requests a minute and 20 a day per model**. Evals space calls **13 s** apart, cap at 80 calls, and **retry a failing case only with `--retries`** (default 0). | Found in the first real run; Yosef asked for careful use of the quota. Open question 9 had suggested one automatic retry. | A provider error stops the run at once and spends nothing more. |
 | `embed(texts, task)` takes a document or query task. | The provider embeds a question differently from a document. | `EmbedTask`; the fake records it. |
 | `who_is_available` takes a **day and an optional shift name**, or a `shift_id`. | The model cannot know shift ids, so "who can work Tuesday morning?" had no way to be answered. | `shift_service.get_shift` was added. |
@@ -294,10 +295,11 @@ all fifteen cases in one run, and the 375 px browser check was not run. Both are
 | 16 | **Not run.** No browser tool was available. The chat endpoint, tools and proposal were exercised by the evals; the screen by component tests. |
 | 17 | API test: without a key chat answers 503 `assistant_unavailable`. The other screens were not opened in a browser. |
 
-### Left to do before closing
+### Deferred
 
-1. After the daily quota resets, run the seven cases that did not pass on the default model:
-   `cd server && uv run python -m evals.run --only pay_vs_last_month,refuse_other_pay,refuse_offtopic,refuse_injection,team_hours,who_is_available,schedule_proposal`
-   (about 14 calls, under the 20 a day).
-2. Check the Assistant screen in a real browser at 375 px as Noa and at 1280 px as Dana, including Confirm and Cancel.
-3. Then set the status to `done`, update `plans/ROADMAP.md`, commit `plan: close plan 004` and merge into `main`.
+- **Real-model eval run.** Eight cases passed on `gemini-3.5-flash` (before its daily quota ended) and seven on
+  `gemini-3.1-flash-lite`; no single run has passed all fifteen on the lite default. Run it when the quota allows:
+  `cd server && uv run python -m evals.run` (about 40 calls; the free tier allows 20 a day per model, so use
+  `--only` in batches).
+- **Chat in the browser with the real model**, including Confirm and Cancel on a proposal, as Noa at 375 px and as
+  Dana at 1280 px. Yosef reviewed the screens; the chat answers were not seen because of the timeouts above.
