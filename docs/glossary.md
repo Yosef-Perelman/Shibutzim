@@ -36,6 +36,8 @@ mapping code and one vocabulary for people and agents.
 | **Access token** | JWT (HS256) with `sub` (user id) and `role`; valid 8 hours; sent as `Authorization: Bearer` | `create_access_token`, `TokenClaims` |
 | **Current user endpoint** | the authenticated user's own profile | `GET /api/auth/me` · `UserOut` |
 | **User list** | managers only: every user, filtered by `role` and `is_active`, ordered by name; feeds the employee picker of the schedule board | `GET /api/users` · `user_service.list_users` · `UserOut` |
+| **Add a person** | managers only: creates a user with an email, name, role (default `employee`), hourly rate and an initial password of 8 to 72 bytes; the email is stored lowercase and must be unused, even by a deactivated user | `POST /api/users` · `user_service.create_user` · `UserCreate` |
+| **Deactivated user** | a user with `is_active = false`: cannot sign in, an existing token stops working, is not scheduled and not found by the assistant, and keeps their history; reversible; a manager cannot deactivate themself | `PATCH /api/users/{id}` · `user_service.set_user_active` · `UserStatusUpdate` |
 | **Demo user** | a user created by the seed; all share the password in `SEED_PASSWORD` | `scripts/seed.py` |
 | **Hourly rate** | an employee's base pay per hour | `hourly_rate` · `users.hourly_rate` (numeric) · `"hourly_rate"` (string) |
 

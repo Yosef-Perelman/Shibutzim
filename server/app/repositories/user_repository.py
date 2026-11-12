@@ -16,6 +16,13 @@ def get_by_email(session: Session, email: str) -> User | None:
     return session.scalar(select(User).where(User.email == email))
 
 
+def add(session: Session, user: User) -> User:
+    """Insert and flush, so a duplicate email surfaces here as an `IntegrityError`."""
+    session.add(user)
+    session.flush()
+    return user
+
+
 def list_active_or_in(session: Session, user_ids: set[int]) -> list[User]:
     """Active users plus the given ids (e.g. deactivated users who still have entries), by name."""
     return list(
