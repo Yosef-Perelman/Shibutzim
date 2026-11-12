@@ -2,9 +2,9 @@
 .git
 .github
 .claude
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 conversations
 design
 docs
