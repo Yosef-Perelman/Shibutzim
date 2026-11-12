@@ -45,7 +45,7 @@ Run from any directory with `gcloud` and `gh` logged in. Choose the names once:
 
 ```bash
 export PROJECT_ID=shibutzim-demo-<something-unique>   # globally unique, lowercase
-export REGION=europe-west3                            # Frankfurt, next to Supabase eu-central-1
+export REGION=europe-west1                            # Belgium, next to Supabase eu-west-1 (Ireland); see the note in step 7
 export SERVICE=shibutzim
 export REPO=shibutzim                                 # Artifact Registry repository
 export GITHUB_REPO=Yosef-Perelman/Shibutzim
@@ -132,8 +132,11 @@ export WIF_PROVIDER="projects/$PROJECT_NUMBER/locations/global/workloadIdentityP
 
 In the Supabase dashboard (by hand):
 
-1. **New project**, region **Central EU (Frankfurt)**, a long generated database password (save it in a password
-   manager).
+1. **New project**, a region in Europe, and a database password of letters and digits only (save it in a password
+   manager). Keep Cloud Run and the database in neighboring regions, because every request makes several queries:
+   Frankfurt (`eu-central-1`) pairs with `europe-west3`, Ireland (`eu-west-1`) with `europe-west1`. Switch the
+   Data API, "expose new tables" off and leave automatic RLS on: the server talks to PostgreSQL directly and never
+   uses Supabase's public API.
 2. **Connect → Session pooler**: copy the connection string. Cloud Run reaches the internet over IPv4 only; the
    direct host is IPv6, so the pooler is required. Use **session** mode (port 5432), not transaction mode, because
    the driver uses prepared statements.
