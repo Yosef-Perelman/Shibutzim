@@ -134,7 +134,7 @@ Space inside a card is `lg` (16 on phones); between cards `md`; between page sec
   The primary action is reachable by thumb (bottom of the screen or in the card), touch targets are at least
   **44 × 44 px**, the navigation is a bottom bar of four items (Shifts, Availability, Pay, Assistant).
 - Manager screens are **desktop-first** (design at 1280 px, content width up to 1200 px) and stay usable at 768 px
-  (the week grid scrolls horizontally inside its own container; the page never does). The navigation is a top bar.
+  (the week grid scrolls horizontally inside its own container; the page never does). The navigation is a top bar of five items (Schedule, Team, Team pay, My pay, Assistant).
 - A screen has one title (`h1`), at most one primary button, and the same three states everywhere (§6.5).
 - Page padding is 16 px on phones, 24 px on tablets and 32 px on desktops. Never less than 16 px at the sides.
 

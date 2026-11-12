@@ -6,7 +6,7 @@ React + Vite + TypeScript + MobX + Mantine. Architecture in
 ## State and data
 
 - One MobX store per domain (`AuthStore`, `ScheduleStore`, `AvailabilityStore`, `TimeStore`, `PayStore`,
-  `AssistantStore`), created by a `RootStore` and provided through a React context.
+  `TeamStore`, `AssistantStore`), created by a `RootStore` and provided through a React context.
 - A store action the user triggers returns an `ActionResult`: a blocking error is shown inline in the dialog that
   started it, edit warnings as notifications.
 - Stores own server state and async actions; **components observe stores and never call `fetch`**.

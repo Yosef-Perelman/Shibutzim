@@ -111,7 +111,8 @@ mapping code and one vocabulary for people and agents.
 | **Coverage badge** | "assigned / required" on a shift: green when full, red while short | `CoverageBadge` |
 | **Last generate panel** | the solver's report shown after Generate: unfilled shifts in its own words, score, and whether the search finished | `UnfilledPanel` · `ScheduleStore.lastRun` |
 | **Action result** | what a user-triggered store action returns: ok with the server's warnings, or a blocking error with its code and message | `ActionResult` |
-| **Demo-user switch** | development-only list of the seeded accounts on the login screen and in the user menu; the password is typed once and kept in memory | `VITE_DEMO_USERS` · `AuthStore.switchTo` |
+| **Demo-user switch** | list of the seeded accounts on the login screen and in the user menu, offered wherever `VITE_DEMO_USERS` was set when the client was built (the dev server, the public demo); the password is typed once and kept in memory | `VITE_DEMO_USERS` · `AuthStore.switchTo` |
+| **Team screen** | the manager's list of people with role, rate and status; adds a person and deactivates or reactivates | `/manager/team` · `features/manager/Team.tsx` · `TeamStore` |
 | **Session expiry** | the server rejected a token the client sent; the client logs out and the login screen says so | `AuthStore.expireSession` · `sessionExpired` |
 | **Period navigator** | previous / next arrows with the week or month between them | `PeriodNavigator`, `WeekNavigator` |
 
@@ -154,3 +155,12 @@ mapping code and one vocabulary for people and agents.
 **Assignment** is what was planned. **Time entry** is what happened. They are different tables, different
 endpoints and different concepts. **Pay is computed from time entries only**; the schedule never produces pay,
 and clocking in never changes the schedule.
+
+### Deployment and interfaces
+
+| Term | Meaning | Code · DB · API |
+|---|---|---|
+| **MCP server** | a Model Context Protocol server that gives any MCP client (Claude Code, Claude Desktop) the assistant's tools for one user; a third entry point over the services, next to REST and the in-app chat | `server/app/mcp/` · `uv run python -m app.mcp` |
+| **MCP token** | the access token the MCP server acts with, checked again on every request | `SHIBUTZIM_MCP_TOKEN` · `Settings.shibutzim_mcp_token` |
+| **PWA** | the client as an installable app: a web manifest, icons and a service worker that precaches the app shell and never caches `/api` | `client/vite.config.ts` · `client/public/` · `npm run icons` |
+| **Release** | a push to `main`: the checks pass, then the image is built and deployed to Cloud Run | `.github/workflows/ci.yml` · [deployment.md](deployment.md) |
