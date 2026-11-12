@@ -29,10 +29,10 @@ deterministically, and ask questions in plain language.
 
 ## Demo
 
-<!-- TODO(author): after the first deployment, put the Cloud Run address here and add 2-3 screenshots
-     (schedule board, my shifts at 375 px, the assistant) and a short GIF under docs/media/. -->
+<!-- TODO(author): add 2-3 screenshots (schedule board, my shifts at 375 px, the assistant) and a short GIF
+     under docs/media/. -->
 
-*The live demo address is added after the first deployment.* Demo accounts share one password,
+**Live demo: https://shibutzim-a7t72ct4pa-ew.a.run.app** (it may take a few seconds to wake up). Demo accounts share one password,
 `shibutzim-demo`: the manager `dana@shibutzim.example` and the employees `noa@`, `omer@`, `tamar@`, `yonatan@`
 and `lior@shibutzim.example`. The site holds demo data only.
 

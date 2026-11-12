@@ -313,7 +313,7 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 
 ## What changed vs. plan
 
-**Outcome so far (2026-11-12).** Every step of the plan is built and committed on the branch, and everything that can be checked on this machine passes. The plan is **not closed**: the CI run, the first deployment and the phone checks need the branch pushed and the one-time cloud setup, which are Yosef's to start (see Still open). Server: 1,076 tests; client: 220 tests; ruff, `alembic check`, lint, Prettier, typecheck and the build are clean.
+**Outcome (2026-11-12).** Every step is built, merged into `main` with a merge commit and **deployed**: the first push to `main` ran the checks and the deploy job, and the service answers at https://shibutzim-a7t72ct4pa-ew.a.run.app. Server: 1,076 tests; client: 220 tests; CI is green on all jobs. The plan stays `in progress` only for the checks that need a person with a phone or a browser, and for rotating two credentials that were exposed (see Still open).
 
 ### Deviations
 
@@ -329,6 +329,13 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 | `workbox-build` and `workbox-window` 7.4.1 and `@vite-pwa/assets-generator` 2.0.0 were added beside `vite-plugin-pwa` 2.0.0. | They are its required and optional peers. | `npm audit` reports findings in Workbox's build-time dependencies and in the existing lint toolchain; with dev dependencies excluded it reports none. |
 | The manager navigation has **five** items and the unit tests build without the PWA plugin. | As planned; recorded because the design system line changed. | `docs/design-system.md` updated. |
 | Two small files (`schemas/user.py`, `core/errors.py`) were first written through the shell, so the edit hooks did not see them. | A slip against the guardrail note in AGENTS.md. | `ruff` and the whole suite were run by hand right after; nothing was missed. |
+| Cloud Run and the registry are in **europe-west1 (Belgium)**, not Frankfurt. | Yosef created the Supabase project in Ireland (`eu-west-1`); Belgium is its closest Google region. The Frankfurt registry was empty and was deleted. | `GCP_REGION` is `europe-west1`; the runbook explains the pairing. |
+| The budget alert is **4 ILS**, not one dollar. | The billing account is in shekels and a budget must use the account's currency. It also filters by project number. | Runbook corrected. |
+| The first CI run found that **`setup-uv` has no floating `v10` tag**. | Floating major tags are not guaranteed to exist. | Pinned to `v10.3.3`; one extra `fix:` commit. |
+| A new project answered `PERMISSION_DENIED` for a minute after its APIs were enabled, and the budget API answered `SERVICE_DISABLED`. | Propagation delay. | Retried; noted in the session, not a runbook change. |
+| The database password was first stored **with a leading space**, then fixed as version 2; the broken version was destroyed. | A paste artifact. | The stored value was checked without printing it. |
+| Both secrets that were stored are the **ones that appeared in this chat**: the Gemini key is the one that was committed in the early history, and the database password is the one pasted. | Yosef chose to share them with the agent and the old key was not replaced. | Both still work. Rotation is listed below. |
+| The agent first tried to run the secret-store commands in one step and the permission check blocked them; Yosef then authorized the agent explicitly and they ran. | The check treats writes to the secret store as sensitive. | None. |
 | The free-tier amounts in the runbook were checked against Google's page on 2026-11-12. | Yosef does not want to pay. | The amounts matched what was told to Yosef. |
 
 ### Validation results
@@ -336,23 +343,23 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 | # | Result |
 |---|---|
 | 1 | The branch reads: plan, test, feat (users), feat (Team screen), test, feat (static), fix (HEAD), chore (Docker), chore (CI), docs (runbook), chore (deploy), chore (mcp dependency), test, feat (MCP), chore (PWA), fix (dockerignore), feat (demo switch), docs, docs (README). Close to the planned order; the extras are in Deviations. |
-| 2 | Searching all history for the first characters of the old key finds nothing, `.env.example` at `HEAD` ends `GEMINI_API_KEY=`, and `main` was pushed and accepted by GitHub. **Revocation of the old key is Yosef's to confirm.** |
+| 2 | Searching all history for the first characters of the old key finds nothing, `.env.example` at `HEAD` ends `GEMINI_API_KEY=`, and `main` was pushed and accepted by GitHub. **The old key is not revoked: it is still in use as the deployed key and must be replaced** (see Still open). |
 | 3 | `uv run pytest -q`: 1,076 passed; `ruff check`, `ruff format --check` and `alembic check` clean. Client lint, Prettier, typecheck, 220 tests and `npm run build` pass. |
 | 3a | Through the rebuilt container: no token 401, employee 403, manager 201, the new person logs in 200, the same email again `email_already_used`, deactivation 200, then the person's token and login both 401, the manager deactivating themself `cannot_deactivate_self`, reactivation 200. The temporary user was deleted afterwards. **The Team screen was not opened in a browser** (no browser tool was available); component tests cover the list, add, field errors, confirmation, cancel and reactivation. |
 | 4 | `docker build` succeeds. `docker compose --profile app up`: `/api/health` is `{"status":"ok"}`; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; hashed assets are `immutable`; `/api/nope` is a JSON 404; a missing asset is 404; the manifest is `application/manifest+json`; the container runs as a non-root user; a demo login works. The login screen in a browser at port 8080 was **not** opened. |
-| 5 | **Open.** The branch is not pushed, so no `ci` run exists. The workflow file parses and its server steps (migrations, `alembic check`, ruff, format) were run locally. |
-| 6 | **Open.** Needs the cloud setup and the push to `main`. |
+| 5 | On pull request 1 (all three jobs) and then on the push of the merge to `main`: server, client and image are green, and the deploy job ran. The first pull request run failed on the missing `setup-uv` tag, fixed by the next commit. |
+| 6 | The deploy job is green. `GET /api/health` answers 200 in about 0.2 s; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; the manifest is `application/manifest+json`; a manager logs in over HTTPS and lists the six seeded people; revision `shibutzim-00001` runs as the runtime service account. The assistant answered \"How is overtime paid?\" for an employee with the handbook's Overtime section as its citation, after one provider answer of \"high demand\" (503) that cleared on retry. Signing in through the browser UI, My shifts and Pay on the live address are **open** (Yosef). |
 | 7 | Over real stdio against the development database: a manager's token lists 4 tools, an employee's lists 4; `get_team_hours` as the manager and `get_my_hours` as the employee return results; the employee calling a manager tool gets `isError` with `forbidden`; the four log rows are `ok`, `ok`, `ok`, `refused`. `get_my_hours` equals `GET /api/pay` in a test, and the draft proposal leaves `schedules` unchanged in a test. A missing or wrong token exits with code 2 and a message. |
 | 8 | `grep -rn "app.repositories\|app.models" server/app/mcp` prints nothing; the router, schema and pure-module greps are silent. |
 | 9 | **Partly.** `npm run build` writes the manifest, the service worker, `registerSW.js` and the icons; the worker has one route (the precached shell) with `/api` in the navigation denylist and no runtime caching; the icons were looked at. Chrome DevTools on the deployed site and "Add to Home Screen" on a phone are **open**. |
-| 10 | Two image builds: with `VITE_DEMO_USERS` the built client contains the demo email once, without it zero times. The deployed login screen is **open**. |
-| 11 | **Open.** `docs/deployment.md` has not been followed by Yosef yet. Its commands were written from the tools' documentation; the `gcloud`, `gh` and Supabase steps are unrun. |
-| 12 | Every relative link in the README and the changed docs resolves. It has not been rendered on GitHub; the live address, screenshots and GIF are marked for the author. |
+| 10 | Two image builds showed the demo email present with the variable and absent without it. The deployed bundle contains the demo email once, so the live login screen offers the accounts; the screen itself is **open** (Yosef). |
+| 11 | The agent ran the runbook's commands on Yosef's logged-in `gcloud` and `gh`, with Yosef doing the Supabase project and the two secrets. Corrections found and written back: the budget currency and filter, the region pairing and the Supabase options. Yosef confirmed the Data API is off. Everything in the runbook up to the first deployment worked. |
+| 12 | Every relative link in the README and the changed docs resolves, and the live address is now in the README. It has not been rendered on GitHub by a person; the screenshots and GIF are still marked for the author. |
 
 ### Still open
 
-1. **Push the branch** (`git push -u origin plan/005-deploy-mcp-pwa`) and watch the `ci` workflow turn green; fix what the first real run finds.
-2. **One-time cloud setup**, from `docs/deployment.md`: the GCP project and billing, the budget alert, the service accounts and Workload Identity Federation, the Supabase project, the three secrets, the GitHub variables, then the seed and the handbook ingest against the new database.
-3. **Close the plan**: merge into `main`, push, watch the deploy job, then do validations 6, 9 (device) and 10 on the live address, add the address, screenshots and GIF to the README, and set this plan to `done`.
-4. Revoke the old Gemini key if that is not done yet.
-5. Open the Team screen and the login screen in a browser at desktop width and at 375 px.
+1. **Rotate the Gemini key**: create a new key in AI Studio, add it as a new version of the `gemini-api-key` secret, deploy again (a push, or `gh workflow run ci --ref main`) and revoke the old one.
+2. **Rotate the database password**: reset it in Supabase, store it as a new version of `database-url`, deploy again and destroy the old version.
+3. **Look at the live site** in a browser at desktop width and at 375 px: login with a demo account, the Team screen, My shifts, Pay and the Assistant; "Add to Home Screen" on a phone; DevTools Application tab shows no manifest errors and `/api` calls never come from the service worker.
+4. **Screenshots and a GIF** for the README, from the live site.
+5. When 1 to 3 are done, set this plan to `done` and update `plans/ROADMAP.md`. There is no plan 006; the roadmap is complete.
