@@ -36,7 +36,7 @@ Google may change them with 30 days' notice):
 | Supabase | free plan | pauses after a week without traffic |
 
 Billing must be enabled on the project even though nothing should be charged. A **budget alert** (step 2) emails
-at 50% and 100% of one dollar. A budget only alerts; it does not stop spending. Outbound traffic beyond the free
+at 50% and 100% of about one dollar. A budget only alerts; it does not stop spending. Outbound traffic beyond the free
 amount is the one thing that could cost cents; a demo does not come close.
 
 ## One-time setup
@@ -63,11 +63,15 @@ export PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(p
 
 ### 2. Budget alert
 
+A budget must use the currency of the billing account (`gcloud billing accounts describe <ACCOUNT_ID>` shows it;
+an Israeli account bills in ILS, where 4 ILS is about one dollar). It filters by project number, and the budget API
+can take a minute to answer after it is enabled.
+
 ```bash
 gcloud services enable billingbudgets.googleapis.com
-gcloud billing budgets create --billing-account=<ACCOUNT_ID> --display-name="Shibutzim 1 USD" \
+gcloud billing budgets create --billing-account=<ACCOUNT_ID> --display-name="Shibutzim budget" \
   --budget-amount=1USD --threshold-rule=percent=0.5 --threshold-rule=percent=1.0 \
-  --filter-projects="projects/$PROJECT_ID"
+  --filter-projects="projects/$PROJECT_NUMBER" --billing-project="$PROJECT_ID"   # use 4ILS for an ILS account
 ```
 
 ### 3. APIs
