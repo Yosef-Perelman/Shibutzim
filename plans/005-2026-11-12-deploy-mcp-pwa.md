@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | in progress |
 | **Date** | 2026-11-12 |
 | **Related docs** | [architecture.md](../docs/architecture.md) §3, §4, §8, §10, §11 · [product-definition.md](../docs/product-definition.md) §5.5, §7 · [coding-rules](../docs/rules/coding-rules.md) · [testing-rules](../docs/rules/testing-rules.md) · [git-rules](../docs/rules/git-rules.md) · [ui-rules](../docs/rules/ui-rules.md) · [design-system](../docs/design-system.md) |
 | **Roadmap** | plan 005 of 005 |
@@ -313,4 +313,46 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+**Outcome so far (2026-11-12).** Every step of the plan is built and committed on the branch, and everything that can be checked on this machine passes. The plan is **not closed**: the CI run, the first deployment and the phone checks need the branch pushed and the one-time cloud setup, which are Yosef's to start (see Still open). Server: 1,076 tests; client: 220 tests; ruff, `alembic check`, lint, Prettier, typecheck and the build are clean.
+
+### Deviations
+
+| What | Why | Effect |
+|---|---|---|
+| The leaked key was removed by rewriting history **twice**. | The first rewrite (before approval) cleared the key from the 72 unpushed commits and `main` was then pushed by Yosef. The approval commit of this plan then quoted the first characters of the key as a search pattern, which also made that check match itself. A second rewrite, limited to the branch, replaced it. | `main` and `origin/main` are the same commit. Backup bundles of both states are in the session scratchpad. Validation 2 is reworded below. |
+| **mcp 2.3.0 renamed `FastMCP` to `MCPServer`**; the server uses the SDK's low-level `Server`. | The tool names, descriptions and schemas already exist in the registry, so there was nothing to re-declare with decorators. | `app/mcp/server.py` is about 130 lines. Open question 3 resolved as suggested for the version, with this class instead. |
+| A manager is offered **four** tools and an employee **four**, not "seven and four". | The role filter gives each role its own set (`search_policy` is shared); seven is the total. | Validation 7 corrected below. |
+| The `mcp` dependency got its own `chore:` commit before the tests. | The tests need the MCP client to import. Only additions to the lock file. | One extra commit. |
+| `fix:` commits for **HEAD requests** on client files and for `.dockerignore`. | Found by the local container run: `curl -I` got 405, and the ignore patterns only matched at the repository root, so `client/.env.local` would have entered the image. Each has its test or check. | Two extra commits. |
+| `ScheduleStore` now asks only for `users.list`. | The new `TeamStore` widened the users API and the schedule store's tests supplied only `list`. | A narrower type, no behavior change. |
+| `STATIC_DIR` is a commented example in `.env.example`. | An empty value would parse as the current directory. | None. |
+| `workbox-build` and `workbox-window` 7.4.1 and `@vite-pwa/assets-generator` 2.0.0 were added beside `vite-plugin-pwa` 2.0.0. | They are its required and optional peers. | `npm audit` reports findings in Workbox's build-time dependencies and in the existing lint toolchain; with dev dependencies excluded it reports none. |
+| The manager navigation has **five** items and the unit tests build without the PWA plugin. | As planned; recorded because the design system line changed. | `docs/design-system.md` updated. |
+| Two small files (`schemas/user.py`, `core/errors.py`) were first written through the shell, so the edit hooks did not see them. | A slip against the guardrail note in AGENTS.md. | `ruff` and the whole suite were run by hand right after; nothing was missed. |
+| The free-tier amounts in the runbook were checked against Google's page on 2026-11-12. | Yosef does not want to pay. | The amounts matched what was told to Yosef. |
+
+### Validation results
+
+| # | Result |
+|---|---|
+| 1 | The branch reads: plan, test, feat (users), feat (Team screen), test, feat (static), fix (HEAD), chore (Docker), chore (CI), docs (runbook), chore (deploy), chore (mcp dependency), test, feat (MCP), chore (PWA), fix (dockerignore), feat (demo switch), docs, docs (README). Close to the planned order; the extras are in Deviations. |
+| 2 | Searching all history for the first characters of the old key finds nothing, `.env.example` at `HEAD` ends `GEMINI_API_KEY=`, and `main` was pushed and accepted by GitHub. **Revocation of the old key is Yosef's to confirm.** |
+| 3 | `uv run pytest -q`: 1,076 passed; `ruff check`, `ruff format --check` and `alembic check` clean. Client lint, Prettier, typecheck, 220 tests and `npm run build` pass. |
+| 3a | Through the rebuilt container: no token 401, employee 403, manager 201, the new person logs in 200, the same email again `email_already_used`, deactivation 200, then the person's token and login both 401, the manager deactivating themself `cannot_deactivate_self`, reactivation 200. The temporary user was deleted afterwards. **The Team screen was not opened in a browser** (no browser tool was available); component tests cover the list, add, field errors, confirmation, cancel and reactivation. |
+| 4 | `docker build` succeeds. `docker compose --profile app up`: `/api/health` is `{"status":"ok"}`; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; hashed assets are `immutable`; `/api/nope` is a JSON 404; a missing asset is 404; the manifest is `application/manifest+json`; the container runs as a non-root user; a demo login works. The login screen in a browser at port 8080 was **not** opened. |
+| 5 | **Open.** The branch is not pushed, so no `ci` run exists. The workflow file parses and its server steps (migrations, `alembic check`, ruff, format) were run locally. |
+| 6 | **Open.** Needs the cloud setup and the push to `main`. |
+| 7 | Over real stdio against the development database: a manager's token lists 4 tools, an employee's lists 4; `get_team_hours` as the manager and `get_my_hours` as the employee return results; the employee calling a manager tool gets `isError` with `forbidden`; the four log rows are `ok`, `ok`, `ok`, `refused`. `get_my_hours` equals `GET /api/pay` in a test, and the draft proposal leaves `schedules` unchanged in a test. A missing or wrong token exits with code 2 and a message. |
+| 8 | `grep -rn "app.repositories\|app.models" server/app/mcp` prints nothing; the router, schema and pure-module greps are silent. |
+| 9 | **Partly.** `npm run build` writes the manifest, the service worker, `registerSW.js` and the icons; the worker has one route (the precached shell) with `/api` in the navigation denylist and no runtime caching; the icons were looked at. Chrome DevTools on the deployed site and "Add to Home Screen" on a phone are **open**. |
+| 10 | Two image builds: with `VITE_DEMO_USERS` the built client contains the demo email once, without it zero times. The deployed login screen is **open**. |
+| 11 | **Open.** `docs/deployment.md` has not been followed by Yosef yet. Its commands were written from the tools' documentation; the `gcloud`, `gh` and Supabase steps are unrun. |
+| 12 | Every relative link in the README and the changed docs resolves. It has not been rendered on GitHub; the live address, screenshots and GIF are marked for the author. |
+
+### Still open
+
+1. **Push the branch** (`git push -u origin plan/005-deploy-mcp-pwa`) and watch the `ci` workflow turn green; fix what the first real run finds.
+2. **One-time cloud setup**, from `docs/deployment.md`: the GCP project and billing, the budget alert, the service accounts and Workload Identity Federation, the Supabase project, the three secrets, the GitHub variables, then the seed and the handbook ingest against the new database.
+3. **Close the plan**: merge into `main`, push, watch the deploy job, then do validations 6, 9 (device) and 10 on the live address, add the address, screenshots and GIF to the README, and set this plan to `done`.
+4. Revoke the old Gemini key if that is not done yet.
+5. Open the Team screen and the login screen in a browser at desktop width and at 375 px.
