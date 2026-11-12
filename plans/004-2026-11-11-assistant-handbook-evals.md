@@ -301,5 +301,5 @@ to the lite model becoming the default. The plan is closed with the real-model c
   `gemini-3.1-flash-lite`; no single run has passed all fifteen on the lite default. Run it when the quota allows:
   `cd server && uv run python -m evals.run` (about 40 calls; the free tier allows 20 a day per model, so use
   `--only` in batches).
-- **Chat in the browser with the real model**, including Confirm and Cancel on a proposal, as Noa at 375 px and as
-  Dana at 1280 px. Yosef reviewed the screens; the chat answers were not seen because of the timeouts above.
+- **Chat in the browser with the real model.** Done by Yosef after the default model changed: the assistant
+  answered and worked well. Not separately checked at 375 px, and the Confirm and Cancel flow was not reported.
