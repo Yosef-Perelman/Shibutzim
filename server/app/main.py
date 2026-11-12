@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    assistant,
     auth,
     availabilities,
     pay,
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     application.include_router(availabilities.router)
     application.include_router(schedules.router)
     application.include_router(users.router)
+    application.include_router(assistant.router)
     return application
 
 

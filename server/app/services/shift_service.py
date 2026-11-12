@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core.errors import ErrorCode, NotFound
 from app.core.time import shift_bounds
 from app.models import Shift, ShiftTemplate, User
 from app.repositories import shift_repository, shift_template_repository
@@ -40,6 +41,14 @@ def generate_shifts(session: Session, current_user: User, week_start: date) -> G
     )
     session.commit()
     return GeneratedShifts(created, shift_repository.list_for_week(session, week_start))
+
+
+def get_shift(session: Session, current_user: User, shift_id: int) -> Shift:
+    """Every signed-in user may see a shift."""
+    shift = shift_repository.get_by_id(session, shift_id)
+    if shift is None:
+        raise NotFound(ErrorCode.shift_not_found, f"Shift {shift_id} does not exist.")
+    return shift
 
 
 def list_shifts(session: Session, current_user: User, week_start: date) -> list[Shift]:

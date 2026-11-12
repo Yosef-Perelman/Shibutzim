@@ -33,6 +33,7 @@ export function makeFakeApi(): FakeApi {
     ),
     timeEntries: group('clockIn', 'clockOut', 'list'),
     pay: group('get', 'team'),
+    assistant: group('chat'),
   } as FakeApi;
 }
 

@@ -13,7 +13,15 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.time import shift_bounds
-from app.scheduler import Availability, Constraint, Exclusion, SchedulingRules, Shift, solve
+from app.scheduler import (
+    Availability,
+    Block,
+    Constraint,
+    Exclusion,
+    SchedulingRules,
+    Shift,
+    solve,
+)
 from app.scheduler.scoring import PREFERRED_WEIGHT
 from tests.unit.scheduler.helpers import (
     AVAILABLE,
@@ -310,6 +318,68 @@ def test_solve_never_exceeds_the_max_shifts_per_week() -> None:
     assert result.unfilled[0].reasons == (Exclusion(1, Constraint.max_shifts),)
 
 
+def test_solve_never_assigns_a_blocked_employee() -> None:
+    staff = employees("Noa", "Omer")
+    shift = make_shift(1)
+
+    result = solve([shift], staff, everyone_available([shift], staff), RULES, blocks=[Block(1, 1)])
+
+    assert staffed(result) == {1: {2}}
+
+
+def test_solve_never_assigns_a_blocked_employee_who_prefers_the_shift() -> None:
+    staff = employees("Noa", "Omer")
+    given = answers((1, 1, PREFERRED), (1, 2, AVAILABLE))
+
+    result = solve([make_shift(1)], staff, given, RULES, blocks=[Block(1, 1)])
+
+    assert staffed(result) == {1: {2}}
+
+
+def test_solve_reports_a_blocked_willing_employee_as_the_reason_a_slot_stays_empty() -> None:
+    staff = employees("Noa", "Omer")
+    given = answers((1, 1, AVAILABLE), (1, 2, UNAVAILABLE))
+
+    result = solve([make_shift(1)], staff, given, RULES, blocks=[Block(1, 1)])
+
+    assert result.score.filled == 0
+    assert Exclusion(1, Constraint.blocked) in result.unfilled[0].reasons
+
+
+def test_solve_blocks_only_the_named_shifts_of_the_employee() -> None:
+    first, second = make_shift(1, day=0), make_shift(2, day=1)
+    staff = employees("Noa")
+
+    result = solve(
+        [first, second],
+        staff,
+        everyone_available([first, second], staff),
+        RULES,
+        blocks=[Block(1, 1)],
+    )
+
+    assert staffed(result) == {2: {1}}
+
+
+def test_solve_without_blocks_is_unchanged() -> None:
+    shifts = [make_shift(1), make_shift(2, day=1)]
+    staff = employees("Noa", "Omer")
+    given = everyone_available(shifts, staff)
+
+    assert solve(shifts, staff, given, RULES, blocks=[]) == solve(shifts, staff, given, RULES)
+
+
+@pytest.mark.parametrize(
+    "block", [Block(9, 1), Block(1, 9)], ids=["unknown_shift", "unknown_employee"]
+)
+def test_solve_rejects_a_block_for_an_unknown_shift_or_employee(block: Block) -> None:
+    staff = employees("Noa")
+    shift = make_shift(1)
+
+    with pytest.raises(ValueError):
+        solve([shift], staff, everyone_available([shift], staff), RULES, blocks=[block])
+
+
 def test_solve_measures_rest_in_real_time_across_the_spring_forward_night() -> None:
     """Thu evening to Fri morning is 8 h on the wall clock but 7 h real time on 2026-03-27."""
     evening = Shift(1, *shift_bounds(date(2026, 3, 26), time(15), time(23), TZ), 1)
@@ -479,6 +549,27 @@ def test_solve_fills_as_many_positions_as_exhaustive_search_and_breaks_no_rule(s
     assert_hard_constraints(result, shifts, given, rules)
     assert result.complete is True
     assert result.score.filled == best_coverage(shifts, staff, given, rules)
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_solve_with_random_blocks_matches_exhaustive_search_without_those_answers(
+    seed: int,
+) -> None:
+    shifts, staff, given, rules = random_instance(seed)
+    rng = random.Random(1000 + seed)
+    blocks = [
+        Block(shift.id, employee.id)
+        for shift in shifts
+        for employee in staff
+        if rng.random() < 0.25
+    ]
+    blocked = {(block.shift_id, block.employee_id) for block in blocks}
+    open_answers = [a for a in given if (a.shift_id, a.employee_id) not in blocked]
+
+    result = solve(shifts, staff, given, rules, blocks=blocks)
+
+    assert_hard_constraints(result, shifts, open_answers, rules)
+    assert result.score.filled == best_coverage(shifts, staff, open_answers, rules)
 
 
 # --- size ---

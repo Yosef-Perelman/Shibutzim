@@ -72,6 +72,10 @@ PATTERN_ROTATION = [
 WORKING_WEEKDAYS = range(5)  # Sunday-Thursday
 DAY_OFF_CYCLE = 6  # each employee has a rotating extra day off
 MANUAL_NOTE = "Forgot to clock out - corrected by the manager"
+HANDBOOK_HINT = (
+    "The handbook is not seeded: run scripts/ingest_handbook.py (needs GEMINI_API_KEY) "
+    "to let the assistant answer policy questions."
+)
 
 AVAILABILITY_CYCLE = [
     AvailabilityStatus.available,
@@ -308,6 +312,7 @@ def main() -> None:
     for table in sorted(report.created.keys() | report.existing.keys()):
         created, existing = report.created.get(table, 0), report.existing.get(table, 0)
         print(f"{table:16} created {created:4}  already there {existing:4}")
+    print(HANDBOOK_HINT)
 
 
 if __name__ == "__main__":

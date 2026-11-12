@@ -194,9 +194,9 @@ These principles are the product's stance on AI and are enforced in code, not on
 | `get_my_hours(from, to)` | employee | read |
 | `explain_pay(from, to)` – runs the pay calculation and explains each tier | employee | read |
 | `search_policy(query)` – retrieval over the handbook, returns chunks with section titles | both | read |
-| `who_is_available(shift_id)` | manager | read |
+| `who_is_available(day, shift?)` or `(shift_id)` – who answered what for one shift | manager | read |
 | `get_team_hours(from, to)` | manager | read |
-| `generate_schedule_draft(week, extra_constraints)` – e.g. "Dana is off Tuesday" | manager | write → proposal |
+| `generate_schedule_draft(week_start, unavailable)` – e.g. "Noa is off Tuesday" | manager | write → proposal |
 
 ### Example questions
 

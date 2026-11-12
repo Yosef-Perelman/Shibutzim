@@ -323,3 +323,58 @@ def test_answering_rejects_a_week_start_that_is_not_a_sunday(
         service.set_availabilities(session, employee, date(2026, 3, 16), {1: AVAILABLE}, now=NOW)
 
     assert raised.value.code == ErrorCode.invalid_week_start
+
+
+# --- who answered what for one shift (plan 004: the assistant's who_is_available) ---
+
+
+def test_a_manager_lists_the_answers_for_one_shift_by_name(session: Session, manager: User) -> None:
+    shift = make_shift(session)
+    zed = make_user(session, name="Zed Zimmer")
+    amy = make_user(session, name="Amy Adler")
+    make_availability(session, shift, zed, PREFERRED)
+    make_availability(session, shift, amy, UNAVAILABLE)
+
+    answers = service.list_for_shift(session, manager, shift.id)
+
+    assert [(a.user.name, a.status) for a in answers] == [
+        ("Amy Adler", UNAVAILABLE),
+        ("Zed Zimmer", PREFERRED),
+    ]
+
+
+def test_answers_of_other_shifts_managers_and_deactivated_users_are_left_out(
+    session: Session, manager: User, employee: User
+) -> None:
+    shift, other_shift = make_shift(session), make_shift(session)
+    gone = make_user(session, is_active=False)
+    make_availability(session, shift, employee)
+    make_availability(session, other_shift, employee)
+    make_availability(session, shift, gone)
+    make_availability(session, shift, manager)
+
+    answers = service.list_for_shift(session, manager, shift.id)
+
+    assert [a.user.id for a in answers] == [employee.id]
+
+
+def test_a_shift_nobody_answered_for_has_no_answers(session: Session, manager: User) -> None:
+    assert service.list_for_shift(session, manager, make_shift(session).id) == []
+
+
+def test_an_employee_cannot_list_the_answers_for_a_shift_even_a_missing_one(
+    session: Session, employee: User
+) -> None:
+    shift = make_shift(session)
+    for shift_id in (shift.id, 987654):
+        with pytest.raises(Forbidden):
+            service.list_for_shift(session, employee, shift_id)
+
+
+def test_listing_the_answers_for_a_missing_shift_gets_not_found(
+    session: Session, manager: User
+) -> None:
+    with pytest.raises(NotFound) as raised:
+        service.list_for_shift(session, manager, 987654)
+
+    assert raised.value.code == ErrorCode.shift_not_found

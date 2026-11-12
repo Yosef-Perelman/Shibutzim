@@ -24,6 +24,7 @@ Every non-2xx API response has this body:
 | `Forbidden` | 403 | `forbidden` |
 | `NotFound` | 404 | `user_not_found`, `time_entry_not_found`, `shift_template_not_found`, `shift_not_found`, `schedule_not_found`, `assignment_not_found` |
 | `Conflict` | 409 | `already_clocked_in`, `not_clocked_in`, `time_entry_overlap`, `availability_locked`, `already_assigned`, `shift_overlap`, `min_rest_violation`, `schedule_published` |
+| `ServiceUnavailable` | 503 | `assistant_unavailable` (no API key, provider error or timeout; the assistant only, every other endpoint keeps working) |
 | any other exception | 500 | `internal_error` (logged with traceback, generic message) |
 
 - Pydantic request-validation errors are converted to the same shape with code `validation_error` and `details`.

@@ -121,4 +121,5 @@ Server commands run from `server/`, client commands from `client/`; `docker comp
 | Client dev server | `cd client && npm run dev` (API on port 8000; Vite proxies `/api`; see `client/.env.example`) |
 | Client checks | `cd client && npm run lint && npm run typecheck && npm test` |
 | Client build, format | `cd client && npm run build` · `npm run format` |
-| Assistant evals | *(plan 004)* `uv run python -m evals.run` |
+| Ingest the handbook (needs `GEMINI_API_KEY`) | `uv run python scripts/ingest_handbook.py` |
+| Assistant evals (real model, uses the provider's quota) | `uv run python -m evals.run --list`, then `--only <ids>`; no `--only` runs all fifteen |

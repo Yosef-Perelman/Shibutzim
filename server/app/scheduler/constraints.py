@@ -45,16 +45,21 @@ def violations(
     assigned: Iterable[Shift],
     status: AvailabilityStatus | None,
     rules: SchedulingRules,
+    *,
+    blocked: bool = False,
 ) -> list[Exclusion]:
     """Every hard constraint broken by giving `shift` to an employee who already has `assigned`.
 
-    `status` is the employee's answer for `shift` (None if they gave none). The candidate shift
-    itself is ignored if it appears in `assigned`, so a caller can pass an employee's full list.
+    `status` is the employee's answer for `shift` (None if they gave none) and `blocked` says the
+    manager ruled them out of it. The candidate shift itself is ignored if it appears in
+    `assigned`, so a caller can pass an employee's full list.
     """
     others = [other for other in assigned if other.id != shift.id]
     found: list[Exclusion] = []
     if not is_workable(status):
         found.append(Exclusion(employee_id, Constraint.availability))
+    if blocked:
+        found.append(Exclusion(employee_id, Constraint.blocked))
     for other in others:
         broken = conflict(shift, other, rules)
         if broken is not None:

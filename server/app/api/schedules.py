@@ -9,6 +9,7 @@ from app.schemas.schedule import (
     AssignmentOut,
     AssignmentUpdate,
     ReasonOut,
+    ScheduleGenerateIn,
     ScheduleGenerateOut,
     ScheduleOut,
     ScoreOut,
@@ -18,7 +19,7 @@ from app.schemas.schedule import (
 )
 from app.services import assignment_service, schedule_service
 from app.services.assignment_service import AssignmentEdit
-from app.services.schedule_service import GeneratedSchedule, ScheduleView
+from app.services.schedule_service import DayOff, GeneratedSchedule, ScheduleView
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 
@@ -30,9 +31,15 @@ def get_schedule(week_start: date, user: CurrentUser, session: SessionDep) -> Sc
 
 @router.post("/{week_start}/generate")
 def generate_schedule(
-    week_start: date, user: CurrentUser, session: SessionDep
+    week_start: date,
+    user: CurrentUser,
+    session: SessionDep,
+    body: ScheduleGenerateIn | None = None,
 ) -> ScheduleGenerateOut:
-    return generate_out(schedule_service.generate_schedule(session, user, week_start))
+    days_off = [DayOff(item.user_id, item.day) for item in body.unavailable] if body else []
+    return generate_out(
+        schedule_service.generate_schedule(session, user, week_start, unavailable=days_off)
+    )
 
 
 @router.post("/{week_start}/publish")

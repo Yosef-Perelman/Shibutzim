@@ -2,8 +2,9 @@
 
 "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest": the shift's local
 weekday and start, how many are required and placed, then each employee who said they could work
-the shift but was excluded by a hard constraint. Employees who did not answer `available` are
-not listed, whatever else applies to them: they were never candidates.
+the shift but was excluded by a hard constraint, a manager's requested day off included.
+Employees who did not answer `available` are not listed, whatever else applies to them: they
+were never candidates.
 """
 
 from collections.abc import Iterable
@@ -17,6 +18,7 @@ CONSTRAINT_PHRASES = {
     Constraint.overlap: "overlap",
     Constraint.min_rest: "minimum rest",
     Constraint.max_shifts: "max shifts per week",
+    Constraint.blocked: "a requested day off",
 }
 
 

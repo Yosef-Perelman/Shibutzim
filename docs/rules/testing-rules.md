@@ -66,4 +66,5 @@ to run against any database whose name does not end in `_test`.
 cd server && uv run pytest -q          # everything
 cd server && uv run pytest -q tests/unit/pay
 cd server && uv run pytest tests/unit/scheduler -v
+cd server && uv run python -m evals.run --list     # the assistant evals use the real model and its quota
 ```

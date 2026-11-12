@@ -1,5 +1,6 @@
 import { ApiClient } from '../api/apiClient';
 import { createApi, type Api } from '../api';
+import { AssistantStore } from './AssistantStore';
 import { AuthStore } from './AuthStore';
 import { AvailabilityStore } from './AvailabilityStore';
 import { PayStore } from './PayStore';
@@ -32,6 +33,7 @@ export class RootStore {
   readonly availability: AvailabilityStore;
   readonly pay: PayStore;
   readonly time: TimeStore;
+  readonly assistant: AssistantStore;
 
   constructor(options: RootStoreOptions = {}) {
     this.api =
@@ -54,5 +56,6 @@ export class RootStore {
     this.availability = new AvailabilityStore({ api: this.api });
     this.pay = new PayStore({ api: this.api });
     this.time = new TimeStore({ api: this.api });
+    this.assistant = new AssistantStore({ api: this.api });
   }
 }

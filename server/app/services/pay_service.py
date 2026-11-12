@@ -13,11 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.core.errors import ErrorCode, NotFound, ValidationFailed
-from app.core.time import day_bounds
 from app.models import TimeEntry, User
 from app.pay import Entry, PayBreakdown, calculate
 from app.repositories import time_entry_repository, user_repository
 from app.services.authorization import ensure_manager, ensure_self_or_manager
+from app.services.weeks import day_range_bounds
 
 
 @dataclass(frozen=True)
@@ -63,10 +63,7 @@ def get_team_pay(
 
 def range_bounds(from_day: date, to_day: date) -> tuple[datetime, datetime]:
     """UTC instants [start, end) covering the local work days from_day..to_day inclusive."""
-    if from_day > to_day:
-        raise ValidationFailed(ErrorCode.validation_error, "'from' must not be after 'to'.")
-    zone = get_settings().tz
-    return day_bounds(from_day, zone)[0], day_bounds(to_day, zone)[1]
+    return day_range_bounds(from_day, to_day, get_settings().tz)
 
 
 def user_pay(user: User, entries: list[TimeEntry]) -> UserPay:

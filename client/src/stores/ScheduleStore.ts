@@ -43,9 +43,9 @@ export interface ScheduleStoreOptions {
 }
 
 const SCHEDULE_NOT_FOUND = 'schedule_not_found';
-const OK: ActionResult = { ok: true, warnings: [] };
+export const OK: ActionResult = { ok: true, warnings: [] };
 
-function failure(error: unknown): ActionResult {
+export function failure(error: unknown): ActionResult {
   if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };
   return { ok: false, code: 'internal_error', message: INTERNAL_ERROR_MESSAGE };
 }

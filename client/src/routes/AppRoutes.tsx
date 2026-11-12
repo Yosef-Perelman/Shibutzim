@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 
 import { LoadingState } from '../components/StateViews';
+import { AssistantScreen } from '../features/assistant/AssistantScreen';
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { StylePreview } from '../features/design/StylePreview';
 import { AvailabilityForm } from '../features/me/AvailabilityForm';
@@ -53,6 +54,7 @@ export const AppRoutes = observer(function AppRoutes() {
         <Route path="/me/shifts" element={<MyShifts />} />
         <Route path="/me/availability" element={<AvailabilityForm />} />
         <Route path="/me/pay" element={<MyPay />} />
+        <Route path="/me/assistant" element={<AssistantScreen />} />
         <Route path="/manager" element={<RequireManager />}>
           <Route path="schedule" element={<ScheduleBoard />} />
           <Route path="pay" element={<TeamPay />} />

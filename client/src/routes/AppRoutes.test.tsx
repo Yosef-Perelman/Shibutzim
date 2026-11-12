@@ -86,6 +86,18 @@ describe('role routes', () => {
     expect(await screen.findByRole('heading', { name: 'Schedule' })).toBeInTheDocument();
   });
 
+  it('lets an employee open the assistant from the navigation', async () => {
+    await renderAt('/me/assistant', employee);
+    expect(await screen.findByRole('heading', { name: 'Assistant' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Assistant' })).toBeInTheDocument();
+  });
+
+  it('lets a manager open the assistant from the navigation', async () => {
+    await renderAt('/me/assistant', manager);
+    expect(await screen.findByRole('heading', { name: 'Assistant' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Assistant' })).toBeInTheDocument();
+  });
+
   it('sends an unknown address to the role home', async () => {
     await renderAt('/nowhere', employee);
     expect(await screen.findByRole('heading', { name: 'My shifts' })).toBeInTheDocument();

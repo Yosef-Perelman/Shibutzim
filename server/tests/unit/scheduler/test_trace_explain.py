@@ -8,6 +8,7 @@ import pytest
 
 from app.core.time import shift_bounds
 from app.scheduler import (
+    Block,
     Constraint,
     Exclusion,
     ScheduleResult,
@@ -84,6 +85,15 @@ def test_trace_records_the_availability_exclusions_of_the_input() -> None:
 
     assert TraceEvent(TraceKind.exclude, 2, 4, Constraint.availability) in trace
     assert TraceEvent(TraceKind.exclude, 1, 2, Constraint.availability) in trace
+
+
+def test_trace_records_the_blocked_exclusions_of_the_input() -> None:
+    shifts, staff, given = week_with_a_rest_conflict()
+
+    trace = solve(shifts, staff, given, RULES, blocks=[Block(2, 2)], trace=True).trace
+
+    assert TraceEvent(TraceKind.exclude, 2, 2, Constraint.blocked) in trace
+    assert TraceEvent(TraceKind.exclude, 2, 2, Constraint.availability) not in trace
 
 
 def test_trace_records_each_placement() -> None:
@@ -263,3 +273,42 @@ def test_explain_skips_an_unanswered_employee_even_if_a_rule_also_blocks() -> No
     assert sentences == [
         "Tuesday 07:00 needs 3, only 1 available; Omer excluded by max shifts per week"
     ]
+
+
+def test_explain_names_a_requested_day_off_as_the_reason() -> None:
+    unfilled = UnfilledSlot(
+        shift_id=2,
+        required=2,
+        assigned=1,
+        reasons=(Exclusion(1, Constraint.blocked),),
+    )
+
+    sentences = explain(result_with(unfilled), [MONDAY_NIGHT, TUESDAY_MORNING], STAFF, TZ)
+
+    assert sentences == [
+        "Tuesday 07:00 needs 2, only 1 available; Dana excluded by a requested day off"
+    ]
+
+
+def test_explain_a_block_on_an_employee_who_was_not_available_stays_silent() -> None:
+    unfilled = UnfilledSlot(
+        shift_id=2,
+        required=2,
+        assigned=1,
+        reasons=(Exclusion(1, Constraint.availability), Exclusion(1, Constraint.blocked)),
+    )
+
+    sentences = explain(result_with(unfilled), [MONDAY_NIGHT, TUESDAY_MORNING], STAFF, TZ)
+
+    assert sentences == ["Tuesday 07:00 needs 2, only 1 available"]
+
+
+def test_solve_explains_a_blocked_employee_end_to_end() -> None:
+    staff = employees("Dana", "Noa")
+    shift = make_shift(1, staff=2)
+    result = solve([shift], staff, everyone_available([shift], staff), RULES, blocks=[Block(1, 1)])
+
+    sentences = explain(result, [shift], staff, TZ)
+
+    assert len(sentences) == 1
+    assert sentences[0].endswith("only 1 available; Dana excluded by a requested day off")

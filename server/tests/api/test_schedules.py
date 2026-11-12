@@ -1,6 +1,6 @@
 """Schedule endpoints: generate, read, edit assignments and publish (401 / 403 matrix included)."""
 
-from datetime import time
+from datetime import time, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -73,12 +73,20 @@ def test_endpoint_without_a_token_returns_401(client: TestClient, method: str, p
     ("method", "path", "body"),
     [
         ("POST", f"{BASE}/generate", None),
+        ("POST", f"{BASE}/generate", {"unavailable": [{"user_id": 1, "day": WEEK}]}),
         ("POST", f"{BASE}/publish", None),
         ("POST", f"{BASE}/assignments", {"shift_id": 1, "user_id": 1}),
         ("PATCH", f"{BASE}/assignments/1", {"user_id": 1}),
         ("DELETE", f"{BASE}/assignments/1", None),
     ],
-    ids=["generate", "publish", "add_assignment", "replace_assignment", "remove_assignment"],
+    ids=[
+        "generate",
+        "generate_with_days_off",
+        "publish",
+        "add_assignment",
+        "replace_assignment",
+        "remove_assignment",
+    ],
 )
 def test_manager_only_endpoints_return_403_for_an_employee(
     employee_client: TestClient, method: str, path: str, body: dict | None
@@ -157,6 +165,99 @@ def test_generate_names_who_is_excluded_and_why(
         "constraint": "min_rest",
         "shift_id": morning.id,
     }
+
+
+MONDAY = (NEXT_WEEK + timedelta(days=1)).isoformat()
+
+
+def test_generate_with_a_day_off_keeps_that_person_off_that_day(
+    manager_client: TestClient, session: Session, employee: User, other_employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee, AvailabilityStatus.preferred)
+    make_availability(session, shift, other_employee)
+
+    response = manager_client.post(
+        f"{BASE}/generate", json={"unavailable": [{"user_id": employee.id, "day": MONDAY}]}
+    )
+
+    assert response.status_code == 200
+    assert [a["user_id"] for a in response.json()["schedule"]["assignments"]] == [other_employee.id]
+
+
+def test_generate_with_an_empty_body_or_no_days_off_is_the_same_as_without_a_body(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee)
+
+    response = manager_client.post(f"{BASE}/generate", json={})
+
+    assert response.status_code == 200
+    assert len(response.json()["schedule"]["assignments"]) == 1
+
+
+def test_generate_names_a_day_off_as_the_reason_for_an_empty_slot(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, employee)
+
+    response = manager_client.post(
+        f"{BASE}/generate", json={"unavailable": [{"user_id": employee.id, "day": MONDAY}]}
+    )
+
+    unfilled = response.json()["unfilled"][0]
+    assert unfilled["reasons"] == [
+        {
+            "user_id": employee.id,
+            "user_name": "Eli Employee",
+            "constraint": "blocked",
+            "shift_id": None,
+        }
+    ]
+    assert unfilled["sentence"].endswith("Eli Employee excluded by a requested day off")
+
+
+@pytest.mark.parametrize(
+    ("user", "day", "code"),
+    [
+        (987654, MONDAY, "user_not_assignable"),
+        ("employee", "2026-04-30", "validation_error"),
+        ("employee", "not-a-date", "validation_error"),
+        (None, MONDAY, "validation_error"),
+    ],
+    ids=["unknown_user", "day_outside_the_week", "malformed_day", "missing_user"],
+)
+def test_generate_rejects_a_bad_day_off_with_422(
+    manager_client: TestClient,
+    session: Session,
+    employee: User,
+    user: int | str | None,
+    day: str,
+    code: str,
+) -> None:
+    monday_shift(session)
+    entry: dict = {"day": day}
+    if user is not None:
+        entry["user_id"] = employee.id if user == "employee" else user
+
+    response = manager_client.post(f"{BASE}/generate", json={"unavailable": [entry]})
+
+    assert response.status_code == 422
+    assert error_code(response) == code
+
+
+def test_generate_rejects_more_than_fifty_days_off_with_422(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    monday_shift(session)
+    entry = {"user_id": employee.id, "day": MONDAY}
+
+    response = manager_client.post(f"{BASE}/generate", json={"unavailable": [entry] * 51})
+
+    assert response.status_code == 422
+    assert error_code(response) == "validation_error"
 
 
 def test_generate_without_shifts_returns_422(manager_client: TestClient) -> None:

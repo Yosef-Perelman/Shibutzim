@@ -1,4 +1,5 @@
 import type { ApiClient } from './apiClient';
+import { createAssistantApi } from './assistant';
 import { createAuthApi } from './auth';
 import { createAvailabilitiesApi } from './availabilities';
 import { createPayApi } from './pay';
@@ -17,6 +18,7 @@ export function createApi(client: ApiClient) {
     schedules: createSchedulesApi(client),
     timeEntries: createTimeEntriesApi(client),
     pay: createPayApi(client),
+    assistant: createAssistantApi(client),
   };
 }
 

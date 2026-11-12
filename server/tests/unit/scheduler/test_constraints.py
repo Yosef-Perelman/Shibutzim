@@ -140,3 +140,13 @@ def test_every_violated_constraint_is_reported() -> None:
         Constraint.overlap,
         Constraint.max_shifts,
     ]
+
+
+def test_a_blocked_shift_violates_blocked_even_when_the_employee_is_available() -> None:
+    result = violations(EMPLOYEE, make_shift(1), [], AVAILABLE, RULES, blocked=True)
+
+    assert result == [Exclusion(EMPLOYEE, Constraint.blocked)]
+
+
+def test_a_shift_is_not_blocked_unless_the_caller_says_so() -> None:
+    assert violations(EMPLOYEE, make_shift(1), [], AVAILABLE, RULES) == []

@@ -327,3 +327,8 @@ def test_entries_use_utc_aware_timestamps(seeded: Session) -> None:
 
     assert entry.clock_in.utcoffset() is not None
     assert entry.clock_in.astimezone(UTC).tzinfo is UTC
+
+
+def test_the_seed_tells_where_the_handbook_comes_from() -> None:
+    assert "scripts/ingest_handbook.py" in seed.HANDBOOK_HINT
+    assert "GEMINI_API_KEY" in seed.HANDBOOK_HINT

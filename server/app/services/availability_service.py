@@ -6,6 +6,7 @@ week; managers can always correct answers. Past weeks are read-only for employee
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
@@ -15,10 +16,33 @@ from app.core.enums import AvailabilityStatus, Role
 from app.core.errors import Conflict, ErrorCode, NotFound, ValidationFailed
 from app.core.time import week_start as week_start_of
 from app.models import Availability, User
-from app.repositories import availability_repository, schedule_repository, shift_repository
-from app.services.authorization import ensure_self_or_manager
+from app.repositories import (
+    availability_repository,
+    schedule_repository,
+    shift_repository,
+    user_repository,
+)
+from app.services.authorization import ensure_manager, ensure_self_or_manager
 from app.services.users import ensure_assignable, get_user_or_404
 from app.services.weeks import ensure_week_start
+
+
+@dataclass(frozen=True)
+class ShiftAnswer:
+    user: User
+    status: AvailabilityStatus
+
+
+def list_for_shift(session: Session, current_user: User, shift_id: int) -> list[ShiftAnswer]:
+    """Who answered what for one shift, by name. Managers only; people who cannot be scheduled
+    (managers, deactivated users) are left out, as the solver leaves them out."""
+    ensure_manager(current_user)
+    if shift_repository.get_by_id(session, shift_id) is None:
+        raise NotFound(ErrorCode.shift_not_found, f"Shift {shift_id} does not exist.")
+    answers = availability_repository.list_for_shifts(session, [shift_id])
+    staff = {user.id: user for user in user_repository.list_active_employees(session)}
+    found = [ShiftAnswer(staff[a.user_id], a.status) for a in answers if a.user_id in staff]
+    return sorted(found, key=lambda answer: (answer.user.name, answer.user.id))
 
 
 def list_availabilities(

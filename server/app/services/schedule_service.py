@@ -4,10 +4,15 @@
 `propose_schedule` runs the solver and returns its result without saving anything; it serves the
 assistant's dry run and the `debug-schedule` explanation. `generate_schedule` stores the result
 as the week's draft. A published schedule is never replaced by generating again.
+
+Both accept days off ("Dana can't work Tuesday"): a person's day off rules them out of every shift
+that starts on that local day, as a hard constraint of the solver.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -29,6 +34,14 @@ from app.services.authorization import ensure_manager
 from app.services.weeks import ensure_week_start
 
 WEEK_SCHEDULE_INDEX = "uq_schedules_week_start"
+
+
+@dataclass(frozen=True)
+class DayOff:
+    """A manager's request that one employee does not work on one local day."""
+
+    user_id: int
+    day: date
 
 
 @dataclass(frozen=True)
@@ -65,14 +78,27 @@ def propose_schedule(
     *,
     rules: scheduler.SchedulingRules | None = None,
     trace: bool = False,
+    unavailable: Sequence[DayOff] = (),
 ) -> Proposal:
     """Run the solver for the week without saving. `rules` overrides the configured ones."""
     ensure_manager(current_user)
     ensure_week_start(week_start)
-    return solve_week(session, week_start, rules or get_settings().scheduling_rules, trace=trace)
+    return solve_week(
+        session,
+        week_start,
+        rules or get_settings().scheduling_rules,
+        trace=trace,
+        unavailable=unavailable,
+    )
 
 
-def generate_schedule(session: Session, current_user: User, week_start: date) -> GeneratedSchedule:
+def generate_schedule(
+    session: Session,
+    current_user: User,
+    week_start: date,
+    *,
+    unavailable: Sequence[DayOff] = (),
+) -> GeneratedSchedule:
     """Store the solver's result as the week's draft, replacing the current draft."""
     ensure_manager(current_user)
     ensure_week_start(week_start)
@@ -81,7 +107,9 @@ def generate_schedule(session: Session, current_user: User, week_start: date) ->
         raise Conflict(
             ErrorCode.schedule_published, "This week is already published; it cannot be generated."
         )
-    proposal = solve_week(session, week_start, get_settings().scheduling_rules, trace=False)
+    proposal = solve_week(
+        session, week_start, get_settings().scheduling_rules, trace=False, unavailable=unavailable
+    )
 
     schedule = schedule or create_draft(session, week_start)
     assignment_repository.delete_for_schedule(session, schedule.id)
@@ -129,7 +157,12 @@ def publish_schedule(
 
 
 def solve_week(
-    session: Session, week_start: date, rules: scheduler.SchedulingRules, *, trace: bool
+    session: Session,
+    week_start: date,
+    rules: scheduler.SchedulingRules,
+    *,
+    trace: bool,
+    unavailable: Sequence[DayOff] = (),
 ) -> Proposal:
     shifts = shift_repository.list_for_week(session, week_start)
     if not shifts:
@@ -139,6 +172,7 @@ def solve_week(
         )
     employees = user_repository.list_active_employees(session)
     staff_ids = {employee.id for employee in employees}
+    blocks = blocks_for_days_off(unavailable, shifts, staff_ids, week_start, get_settings().tz)
     answers = availability_repository.list_for_shifts(session, [shift.id for shift in shifts])
 
     solver_shifts = [
@@ -152,11 +186,40 @@ def solve_week(
         if answer.user_id in staff_ids
     ]
     try:
-        result = scheduler.solve(solver_shifts, solver_staff, solver_answers, rules, trace=trace)
+        result = scheduler.solve(
+            solver_shifts, solver_staff, solver_answers, rules, blocks=blocks, trace=trace
+        )
     except ValueError as error:
         raise ValidationFailed(ErrorCode.validation_error, str(error)) from error
     sentences = explain(result, solver_shifts, solver_staff, get_settings().tz)
     return Proposal(week_start, shifts, employees, result, sentences)
+
+
+def blocks_for_days_off(
+    days_off: Sequence[DayOff],
+    shifts: Sequence[Shift],
+    staff_ids: set[int],
+    week_start: date,
+    zone: ZoneInfo,
+) -> list[scheduler.Block]:
+    """Rule each person out of the shifts that start on their day off (local time)."""
+    week_days = {week_start + timedelta(days=offset) for offset in range(7)}
+    blocks: set[scheduler.Block] = set()
+    for off in days_off:
+        if off.user_id not in staff_ids:
+            raise ValidationFailed(
+                ErrorCode.user_not_assignable, f"User {off.user_id} is not an active employee."
+            )
+        if off.day not in week_days:
+            raise ValidationFailed(
+                ErrorCode.validation_error, f"{off.day} is not in the week of {week_start}."
+            )
+        blocks.update(
+            scheduler.Block(shift.id, off.user_id)
+            for shift in shifts
+            if shift.starts_at.astimezone(zone).date() == off.day
+        )
+    return sorted(blocks, key=lambda block: (block.shift_id, block.employee_id))
 
 
 def create_draft(session: Session, week_start: date) -> Schedule:

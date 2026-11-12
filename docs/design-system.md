@@ -132,7 +132,7 @@ Space inside a card is `lg` (16 on phones); between cards `md`; between page sec
 
 - Employee screens are designed at **375 px** (checked in a real 375 px frame, not a resized window) and widened: one column, content width up to 640 px, centered.
   The primary action is reachable by thumb (bottom of the screen or in the card), touch targets are at least
-  **44 × 44 px**, the navigation is a bottom bar of three items (Shifts, Availability, Pay).
+  **44 × 44 px**, the navigation is a bottom bar of four items (Shifts, Availability, Pay, Assistant).
 - Manager screens are **desktop-first** (design at 1280 px, content width up to 1200 px) and stay usable at 768 px
   (the week grid scrolls horizontally inside its own container; the page never does). The navigation is a top bar.
 - A screen has one title (`h1`), at most one primary button, and the same three states everywhere (§6.5).
@@ -205,7 +205,7 @@ shrink below 44 px on phones.
   whole row; used for the week range and the pay month.
 - **Header:** `surface`, 56 px high on phones and 64 on desktops, `shadow-header`; the brand mark on the start side,
   the current user's name with a role badge and the user menu on the end side.
-- **Bottom bar (employee, phones):** `surface`, `shadow-header` flipped upward, three items with icon and label,
+- **Bottom bar (employee, phones):** `surface`, `shadow-header` flipped upward, four items with icon and label,
   active item in `primary` text with the filled icon.
 
 ### 6.5 States every data screen has
