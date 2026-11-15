@@ -261,9 +261,21 @@ describe('AssistantScreen proposals', () => {
     expect(await screen.findByText('Draft created')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open schedule' })).toHaveAttribute(
       'href',
-      '/manager/schedule',
+      '/manager/schedule?week=2026-11-15',
     );
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+  });
+
+  it('"Open schedule" links to the week the proposal drafted', async () => {
+    const { api, typist } = await withProposal({ week_start: '2026-11-22' });
+    api.schedules.generate.mockResolvedValue({});
+
+    await typist.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(await screen.findByRole('link', { name: 'Open schedule' })).toHaveAttribute(
+      'href',
+      '/manager/schedule?week=2026-11-22',
+    );
   });
 
   it("shows the server's message inline when confirming fails and keeps the buttons", async () => {

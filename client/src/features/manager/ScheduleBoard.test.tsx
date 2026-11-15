@@ -10,7 +10,10 @@ import { makeUser } from '../../test/fixtures';
 import { makeFakeApi, renderWithStores } from '../../test/renderWithStores';
 import { ScheduleBoard } from './ScheduleBoard';
 
+// The current week of the frozen clock (Tuesday 17 Nov 2026): the board opens here, not on next week.
 const WEEK = '2026-11-15';
+const NEXT_WEEK = '2026-11-22';
+const LATER_WEEK = '2026-11-29';
 const manager = makeUser({ id: 9, name: 'Dana Levi', email: 'dana@x', role: 'manager' });
 
 function employee(id: number, name: string): User {
@@ -83,13 +86,61 @@ function boardApi(options: { shifts?: Shift[]; schedule?: Schedule | null } = {}
 }
 
 beforeEach(() => {
-  // Monday 9 Nov 2026: the board opens on the week of Sunday 15 Nov.
+  // Tuesday 17 Nov 2026: the current week is the one starting Sunday 15 Nov.
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-11-09T12:00:00Z'));
+  vi.setSystemTime(new Date('2026-11-17T12:00:00Z'));
 });
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('ScheduleBoard week', () => {
+  it('opens on the current week', async () => {
+    const api = boardApi();
+    await renderWithStores(<ScheduleBoard />, { api, user: manager });
+    expect(await screen.findByRole('region', { name: 'Sun 15 Nov' })).toBeInTheDocument();
+    expect(api.shifts.list).toHaveBeenCalledWith(WEEK);
+    expect(api.schedules.get).toHaveBeenCalledWith(WEEK);
+    expect(api.shifts.list).not.toHaveBeenCalledWith(NEXT_WEEK);
+    expect(screen.queryByRole('button', { name: 'This week' })).not.toBeInTheDocument();
+  });
+
+  it('Next week moves one week', async () => {
+    const api = boardApi();
+    await renderWithStores(<ScheduleBoard />, { api, user: manager });
+    await screen.findByRole('region', { name: 'Sun 15 Nov' });
+    await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    await waitFor(() => expect(api.shifts.list).toHaveBeenLastCalledWith(NEXT_WEEK));
+    expect(api.schedules.get).toHaveBeenLastCalledWith(NEXT_WEEK);
+    expect(await screen.findByText('22–28 Nov')).toBeInTheDocument();
+  });
+
+  it('?week=YYYY-MM-DD opens that week', async () => {
+    const api = boardApi();
+    await renderWithStores(<ScheduleBoard />, {
+      api,
+      user: manager,
+      path: `/manager/schedule?week=${LATER_WEEK}`,
+    });
+    expect(await screen.findByText('29 Nov – 5 Dec')).toBeInTheDocument();
+    expect(api.shifts.list).toHaveBeenCalledWith(LATER_WEEK);
+    expect(api.schedules.get).toHaveBeenCalledWith(LATER_WEEK);
+    expect(api.shifts.list).not.toHaveBeenCalledWith(WEEK);
+    expect(screen.getByRole('button', { name: 'This week' })).toBeInTheDocument();
+  });
+
+  it('"This week" returns to the current week from a linked week', async () => {
+    const api = boardApi();
+    await renderWithStores(<ScheduleBoard />, {
+      api,
+      user: manager,
+      path: `/manager/schedule?week=${LATER_WEEK}`,
+    });
+    expect(await screen.findByText('29 Nov – 5 Dec')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'This week' }));
+    await waitFor(() => expect(api.shifts.list).toHaveBeenLastCalledWith(WEEK));
+  });
 });
 
 describe('ScheduleBoard with no shifts', () => {

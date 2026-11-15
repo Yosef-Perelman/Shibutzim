@@ -107,7 +107,11 @@ export const ProposalCard = observer(function ProposalCard({ entry }: ProposalCa
             <Badge color="success" variant="light" size="lg" leftSection={<IconCheck size={14} />}>
               Draft created
             </Badge>
-            <Button component={Link} to="/manager/schedule" variant="outline">
+            <Button
+              component={Link}
+              to={`/manager/schedule?week=${proposal.week_start}`}
+              variant="outline"
+            >
               Open schedule
             </Button>
           </Group>

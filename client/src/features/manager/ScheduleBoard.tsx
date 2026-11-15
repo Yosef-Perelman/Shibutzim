@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications';
 import { IconCalendarOff, IconPlayerPlay, IconSend } from '@tabler/icons-react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import type { Assignment } from '../../api/types/schedule';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -31,6 +32,15 @@ type Target =
 
 const DAYS_IN_WEEK = 7;
 
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The `?week=` value when it is a real date that starts a week (a Sunday); otherwise null. */
+function linkedWeek(value: string | null): string | null {
+  if (value === null || !DATE_PATTERN.test(value)) return null;
+  if (shiftWeek(value, 0) !== value) return null;
+  return currentWeekStart(new Date(`${value}T12:00:00Z`)) === value ? value : null;
+}
+
 function describe(entry: ShiftEntry): string {
   return `${entry.shift.name} on ${formatDay(localDate(entry.shift.starts_at))}`;
 }
@@ -56,15 +66,18 @@ function showFailure(result: ActionResult) {
 /** The manager's week: shifts by day, generate, edit, publish (product-definition §5.2). */
 export const ScheduleBoard = observer(function ScheduleBoard() {
   const store = useScheduleStore();
+  const [searchParams] = useSearchParams();
+  // Read once: moving between weeks inside the board goes through the store, not the URL.
+  const [initialWeek] = useState(() => linkedWeek(searchParams.get('week')) ?? currentWeekStart());
   const [target, setTarget] = useState<Target | null>(null);
   const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [confirmingGenerate, setConfirmingGenerate] = useState(false);
 
   useEffect(() => {
-    // The week being scheduled is next week.
-    void store.loadBoard(shiftWeek(currentWeekStart(), 1));
+    // The board opens on the linked week (?week=), else on the current week.
+    void store.loadBoard(initialWeek);
     void store.loadEmployees();
-  }, [store]);
+  }, [store, initialWeek]);
 
   async function createShifts() {
     const result = await store.createShifts();
