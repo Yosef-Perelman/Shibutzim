@@ -5,7 +5,7 @@ from evals.types import EvalCase, Fact
 
 EMPLOYEE = "Noa Katz"
 MANAGER = "Dana Levi"
-SEEDED_RATES = ("42.50", "38.00", "45.00", "40.00", "55.00")
+SEEDED_RATES = ("42.50", "38.00", "45.00", "40.00", "55.00", "48.00", "36.50")
 
 CASES: tuple[EvalCase, ...] = (
     EvalCase(

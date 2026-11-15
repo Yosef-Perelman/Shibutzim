@@ -103,14 +103,56 @@ def test_a_later_run_only_adds_the_new_days(seeded: Session) -> None:
 # --- users ---
 
 
-def test_one_manager_and_five_employees_with_different_hourly_rates(seeded: Session) -> None:
+def test_one_manager_and_seven_employees_with_different_hourly_rates(seeded: Session) -> None:
     users = list(seeded.scalars(select(User)))
 
     managers = [u for u in users if u.role is Role.manager]
     employees = [u for u in users if u.role is Role.employee]
     assert len(managers) == 1
-    assert len(employees) == 5
-    assert len({u.hourly_rate for u in employees}) == 5
+    assert len(employees) == 7
+    assert len({u.hourly_rate for u in employees}) == 7
+
+
+def test_maya_and_itai_are_seeded_with_their_own_rates(seeded: Session) -> None:
+    maya = seeded.scalar(select(User).where(User.email == "maya@shibutzim.example"))
+    itai = seeded.scalar(select(User).where(User.email == "itai@shibutzim.example"))
+
+    assert (maya.name, maya.role, maya.hourly_rate) == (
+        "Maya Cohen",
+        Role.employee,
+        Decimal("48.00"),
+    )
+    assert (itai.name, itai.role, itai.hourly_rate) == (
+        "Itai Shapira",
+        Role.employee,
+        Decimal("36.50"),
+    )
+
+
+def test_the_two_new_employees_come_after_the_original_five(seeded: Session) -> None:
+    """Appended, so the index-based cycles of the existing demo users do not move."""
+    employees = list(
+        seeded.scalars(select(User).where(User.role == Role.employee).order_by(User.id))
+    )
+
+    assert [u.email for u in employees] == [
+        "noa@shibutzim.example",
+        "omer@shibutzim.example",
+        "tamar@shibutzim.example",
+        "yonatan@shibutzim.example",
+        "lior@shibutzim.example",
+        "maya@shibutzim.example",
+        "itai@shibutzim.example",
+    ]
+    assert [u.hourly_rate for u in employees] == [
+        Decimal("42.50"),
+        Decimal("38.00"),
+        Decimal("45.00"),
+        Decimal("40.00"),
+        Decimal("55.00"),
+        Decimal("48.00"),
+        Decimal("36.50"),
+    ]
 
 
 def test_every_user_can_log_in_with_the_seed_password(seeded: Session) -> None:
@@ -123,7 +165,7 @@ def test_emails_are_lowercase_and_unique(seeded: Session) -> None:
     emails = list(seeded.scalars(select(User.email)))
 
     assert emails == [e.lower() for e in emails]
-    assert len(emails) == len(set(emails)) == 6
+    assert len(emails) == len(set(emails)) == 8
 
 
 # --- templates, shifts, availability ---
@@ -159,7 +201,10 @@ def test_availability_covers_both_weeks_with_mixed_answers_and_gaps(seeded: Sess
 
     statuses = {a.status.value for a in answers}
     assert statuses == {"available", "preferred", "unavailable"}
-    assert len(answers) < 5 * total_shifts  # some employees gave no answer
+    employee_count = seeded.scalar(
+        select(func.count()).select_from(User).where(User.role == Role.employee)
+    )
+    assert len(answers) < employee_count * total_shifts  # some employees gave no answer
     assert {s.week_start for s in (seeded.get(Shift, a.shift_id) for a in answers)} == {
         date(2026, 3, 8),
         date(2026, 3, 15),
@@ -284,7 +329,7 @@ def test_pay_can_be_calculated_for_the_whole_seeded_team(seeded: Session) -> Non
     team = pay_service.get_team_pay(seeded, manager, from_day=FIRST_DAY, to_day=LAST_DAY)
 
     employees = [row for row in team if row.user.role is Role.employee]
-    assert len(employees) == 5
+    assert len(employees) == 7
     assert all(row.breakdown.amount > 0 and row.open_entries == 0 for row in employees)
 
 

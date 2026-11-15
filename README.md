@@ -30,8 +30,8 @@ deterministically, and ask questions in plain language.
 ## Demo
 
 **Live demo: https://shibutzim-a7t72ct4pa-ew.a.run.app** (it may take a few seconds to wake up). Demo accounts share one password,
-`shibutzim-demo`: the manager `dana@shibutzim.example` and the employees `noa@`, `omer@`, `tamar@`, `yonatan@`
-and `lior@shibutzim.example`. The site holds demo data only.
+`shibutzim-demo`: the manager `dana@shibutzim.example` and the employees `noa@`, `omer@`, `tamar@`, `yonatan@`,
+`lior@`, `maya@` and `itai@shibutzim.example`. The site holds demo data only.
 
 The app installs on a phone home screen (PWA).
 
