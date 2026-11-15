@@ -230,8 +230,90 @@ answered as suggested.
 
 ## Review
 
-*(filled in by the reviewer step)*
+**Round 1, 2026-11-15.** The `reviewer` agent type was not registered in the implementing session (Claude Code
+rejected `subagent_type: reviewer` although `.claude/agents/reviewer.md` existed; the plan's assumption that new
+agent files are picked up within seconds did not hold here). The review was run by a general-purpose agent on
+`claude-opus-5-5` told to follow `reviewer.md` and stay read-only. Verdict: **changes requested**, one blocker.
+Reviewed commits: 332c176 … c77b8c6.
+
+| Severity | Finding | What was done |
+|---|---|---|
+| blocker | Validation needs an `Agent` call of type `reviewer` and `@"reviewer (agent)"` answering with its model; the stand-in does not satisfy it, and `reviewer_bash_guard.py` was never exercised live. | **Open.** Needs a new session where the agent is registered; then re-run step 9 as `reviewer` (see "What is left"). |
+| should | Goal says shell writes are blocked for every agent, step-1 tests say `backend` may shell-write `server/`. | Resolved in favour of the tests (per-agent table, same for Edit and Bash); recorded below. |
+| should | The Goal's count table is not what `--audit` prints. | Real numbers recorded below; Goal table left as written. |
+| should | Unrecorded deviations: `docs/` writable by backend and frontend, wider allowlist, later guard changes. | Recorded below. |
+| should | AGENTS.md subagent table: skill rows had three cells under four columns. | Fixed. |
+| should | `sed -i` with several files skipped the first file. | Fixed, test added. |
+| should | Script piped into an interpreter (`cat <<EOF \| python3 -`, `echo … \| python3`, `\| bash`) not detected. | Fixed, tests added. |
+| should | `xargs`, `find -exec`, `find -delete`, `timeout` not unwrapped. | Fixed, tests added. |
+| should | Paths differing only in case (macOS) bypassed the table. | Fixed (case-insensitive), tests added. |
+| should | The main session could create the escape-hatch file. | Fixed: no agent may write it, tests added. |
+| should | Worktree paths under `.claude/worktrees/` would be mis-scoped (reviewer could not verify the layout). | Handled by stripping the prefix, test added; the real layout is still unverified. |
+| should | Post-Bash hook formats and tests files other people changed; a reviewer Bash call could rewrite files. | Fixed: reviewer calls never trigger a check; files already dirty at session start are baselined by `check_setup.py`. |
+| should | Pre-commit skipped deletion-only commits. | Fixed (deletions count), tests by live probe. |
+| should | Hook tests ran nowhere automatically. | Pre-commit runs them when `.claude/hooks/` is staged; docs updated. CI still does not run them (not in scope). |
+| should | Audit counted all of `client/` and joined subagent meta untested. | Counts the guard's area (`server/`, `client/src/`); `toolUseId` join tested with the real field name. |
+| nit | Redirect glued to a word (`echo x>file`), `dist` exempt everywhere, ruff calls outside the timeout handler and 3×60 s over the 120 s hook limit, unguarded `json.load`, relative `file_path`, `(`/`)` forbidden in the reviewer guard, non-ASCII paths in pre-commit, planning-rules order, `--audit` wording, AGENTS wording. | All fixed. |
+| nit | `settings.json` deny patterns miss `git commit -an`, `git -c core.hooksPath=… commit` and `git config --unset core.hooksPath`. | **Not done.** Permission changes beyond the plan; for Yosef to decide. The two forms the plan names are denied (checked live). |
+| nit | `plans/ROADMAP.md` links the uncommitted draft of plan 007. | Left: the draft is committed on approval. |
+| nit | Pre-commit has no automated test; no test for the pytest-timeout text. | Pre-commit verified live (below); timeout test added. |
+
+Residual risks the plan already accepted: a script written to a file and run, `git apply`, `patch`, `curl -o`, paths
+built inside a script.
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+*Interim notes; the plan is not closed (see "What is left").*
+
+- **Shell writes by `backend`/`frontend`.** The Goal says blocked for every agent, the step-1 tests say `backend`
+  may write `server/` by shell. The code follows the tests: one table for Edit and Bash. Those writes are checked
+  afterwards by the post-Bash hook.
+- **`docs/`.** `backend` and `frontend` may also write `docs/`, because `backend.md` tells the backend agent to
+  update the glossary and architecture in the same step.
+- **Allowlist.** Broader than listed: any `git`, `npx`, `npm`, `pnpm`, `yarn`, `ruff`, `prettier`, `eslint`,
+  `alembic` command skips the command-specific write detection (redirects are still checked).
+- **Guard extras beyond the plan:** variable expansion, `bash -c` and heredoc-to-shell, pipes into interpreters,
+  `xargs`/`find`/`timeout`, case-insensitive paths, worktree prefix, protected escape-hatch file, narrow
+  generated-path exemptions.
+- **Also added:** `check_setup.py` baselines already-dirty source files; a shared time budget (105 s) in `checks.py`;
+  pre-commit runs the hook tests when `.claude/hooks/` is staged; pre-commit counts deletions.
+- **`--audit` numbers differ from the Goal table.** The Goal table was an earlier hand count. `--audit` counts
+  main-conversation tool calls once per id, and a command counts when it writes under `server/` or `client/src/`.
+  It counts attempts, including ones the guard blocked:
+
+  | Session | Agent calls | Bash | Edit/Write | Shell source writes |
+  |---|---|---|---|---|
+  | 2026-11-10 5875b1be | 0 | 130 | 3 | 47 |
+  | 2026-11-10 e2ef46c5 | 0 | 35 | 1 | 2 |
+  | 2026-11-11 855d1f2f | 0 | 134 | 5 | 45 |
+  | 2026-11-11 871597cc | 0 | 86 | 0 | 39 |
+  | 2026-11-11 f530bcf0 | 0 | 154 | 2 | 57 |
+  | 2026-11-12 57060ed8 | 0 | 165 | 53 | 14 |
+  | **Plans 000–005** | **0** | **704** | **64** | **204** |
+
+  This plan's session (`2ce8ac82`): 5 Agent calls (reviewer 1 that failed to start, general-purpose 1, qa 2,
+  backend 1), 4 shell-write attempts, all blocked by the guard, no change under `server/` or `client/` on the branch.
+- **Validation results so far.**
+  - Hook tests: 87 pass.
+  - Live, main session: `cat > server/app/x.py <<EOF` blocked and no file created; `Edit` of `server/app/main.py`
+    blocked (message names `backend`); `uv run ruff format --check .` in `server/` ran.
+  - Live, subagents: `qa` with `tee -a` on `server/app/main.py` blocked; `qa` could write `server/tests/…`;
+    `backend` could `rm` a file in `server/tests/` and edit `server/app/main.py`, and the post-edit hook recorded it.
+  - Pre-commit on a throwaway branch (deleted): a failing test under `server/tests/` was rejected with exit 1 (ruff
+    B011 fired before pytest); `git commit --no-verify` and `git commit -n` were both denied by `settings.json`;
+    a docs-only commit ran no checks (0.04 s).
+  - `git config core.hooksPath` is `.githooks`. The session-start warning is covered by a unit test, not by starting
+    a session with it unset.
+  - A clean-tree post-Bash check takes 0.03 s. The "lint error elsewhere" live scenario was covered by unit tests
+    only.
+  - `archive_conversation.py --audit` lists agent types and shell writes; the session Markdown has "Subagents
+    invoked".
+
+## What is left
+
+1. Start a new Claude Code session on this branch so `.claude/agents/reviewer.md` is registered. Run step 9 again
+   with `@"reviewer (agent)"` (or `subagent_type: reviewer`): confirm it answers with its model, that
+   `reviewer_bash_guard.py` blocks `ls` and `git push`, that it changes no file (`git status` clean), and that
+   `--audit` shows a `reviewer` call that ran. Record its findings in **Review** (round 2).
+2. Fix any blocker, run Validation again, fill the final "What changed vs. plan" line, set status `done`, update
+   `plans/ROADMAP.md`, commit `plan: close plan 006`, merge into `main` with a merge commit.
