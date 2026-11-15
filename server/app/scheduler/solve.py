@@ -54,9 +54,9 @@ class Problem:
     shift_by_id: dict[int, Shift]
     employee_ids: tuple[int, ...]
     status: dict[tuple[int, int], AvailabilityStatus]
-    candidates: dict[int, frozenset[int]]  # employees who answered available or preferred
+    candidates: dict[int, frozenset[int]]  # employees not marked unavailable, minus blocks
     conflicts: dict[int, dict[int, Constraint]]  # shift -> shifts one employee cannot combine
-    participants: frozenset[int]  # employees who answered available or preferred at least once
+    participants: frozenset[int]  # employees workable (not marked unavailable) on a shift
     blocked: frozenset[tuple[int, int]]  # (shift id, employee id) pairs ruled out by the manager
 
 
@@ -217,7 +217,7 @@ class Search:
         return sorted(
             self.domains[shift_id],
             key=lambda e: (
-                status[(shift_id, e)] is not AvailabilityStatus.preferred,
+                status.get((shift_id, e)) is not AvailabilityStatus.preferred,
                 self.minutes[e],
                 e,
             ),

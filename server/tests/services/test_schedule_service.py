@@ -68,19 +68,54 @@ def test_generate_stores_a_draft_with_the_solvers_assignments(
     assert outcome.proposal.sentences == []
 
 
-def test_generate_never_assigns_unavailable_or_unanswered_employees(
+def test_generate_never_assigns_an_employee_marked_unavailable(
     session: Session, manager: User, employee: User, other_employee: User
 ) -> None:
     shift = monday_shift(session, staff=2)
     make_availability(session, shift, employee, UNAVAILABLE)
-    third = make_user(session, role=Role.employee)  # never answered
     make_availability(session, shift, other_employee)
 
     outcome = service.generate_schedule(session, manager, NEXT_WEEK)
 
     assert assigned(session, shift.id) == {other_employee.id}
-    assert third.id not in assigned(session, shift.id)
     assert outcome.proposal.sentences == ["Monday 07:00 needs 2, only 1 available"]
+
+
+def test_generate_counts_no_answer_as_available(
+    session: Session, manager: User, employee: User, other_employee: User
+) -> None:
+    shift = monday_shift(session, staff=2)
+    make_availability(session, shift, employee, UNAVAILABLE)
+    third = make_user(session, role=Role.employee)  # never answered: counts as available
+    make_availability(session, shift, other_employee)
+
+    outcome = service.generate_schedule(session, manager, NEXT_WEEK)
+
+    assert assigned(session, shift.id) == {other_employee.id, third.id}
+    assert outcome.proposal.result.unfilled == ()
+    assert outcome.proposal.sentences == []
+
+
+def test_generate_fills_a_shift_nobody_answered_for_with_the_active_employees(
+    session: Session, manager: User, employee: User
+) -> None:
+    shift = monday_shift(session)
+
+    outcome = service.generate_schedule(session, manager, NEXT_WEEK)
+
+    assert assigned(session, shift.id) == {employee.id}
+    assert outcome.proposal.sentences == []
+
+
+def test_generate_prefers_a_preferred_answer_over_no_answer(
+    session: Session, manager: User, employee: User, other_employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_availability(session, shift, other_employee, PREFERRED)  # `employee` never answered
+
+    service.generate_schedule(session, manager, NEXT_WEEK)
+
+    assert assigned(session, shift.id) == {other_employee.id}
 
 
 def test_generate_ignores_answers_of_deactivated_users_and_managers(

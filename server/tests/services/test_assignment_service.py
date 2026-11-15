@@ -240,14 +240,27 @@ def test_overlap_wins_over_rest_when_both_apply(
 # --- add: warnings ---
 
 
-@pytest.mark.parametrize("status", [None, UNAVAILABLE], ids=["no_answer", "unavailable"])
-def test_add_warns_when_the_employee_did_not_say_they_could_work(
-    session: Session, manager: User, employee: User, status
+def test_add_does_not_warn_when_the_employee_gave_no_answer(
+    session: Session, manager: User, employee: User
+) -> None:
+    """No answer counts as available (product-definition §5.1)."""
+    make_schedule(session)
+    shift = shift_at(session)
+
+    edit = service.add_assignment(
+        session, manager, NEXT_WEEK, shift_id=shift.id, user_id=employee.id
+    )
+
+    assert edit.warnings == []
+    assert count(session) == 1
+
+
+def test_add_warns_when_the_employee_marked_the_shift_unavailable(
+    session: Session, manager: User, employee: User
 ) -> None:
     make_schedule(session)
     shift = shift_at(session)
-    if status is not None:
-        make_availability(session, shift, employee, status)
+    make_availability(session, shift, employee, UNAVAILABLE)
 
     edit = service.add_assignment(
         session, manager, NEXT_WEEK, shift_id=shift.id, user_id=employee.id
@@ -255,6 +268,20 @@ def test_add_warns_when_the_employee_did_not_say_they_could_work(
 
     assert codes(edit) == ["availability_ignored"]
     assert count(session) == 1
+
+
+def test_the_availability_warning_says_the_employee_marked_the_shift_unavailable(
+    session: Session, manager: User, employee: User
+) -> None:
+    make_schedule(session)
+    shift = shift_at(session)
+    make_availability(session, shift, employee, UNAVAILABLE)
+
+    edit = service.add_assignment(
+        session, manager, NEXT_WEEK, shift_id=shift.id, user_id=employee.id
+    )
+
+    assert "Eli Employee marked Monday 07:00 unavailable" in edit.warnings[0].message
 
 
 @pytest.mark.parametrize("status", [AVAILABLE, PREFERRED])
@@ -310,6 +337,7 @@ def test_add_can_report_several_warnings_at_once(
     schedule = make_schedule(session)
     shift = shift_at(session, staff=1)
     make_assignment(session, schedule, shift, other_employee)
+    make_availability(session, shift, employee, UNAVAILABLE)
 
     edit = service.add_assignment(
         session, manager, NEXT_WEEK, shift_id=shift.id, user_id=employee.id
@@ -354,7 +382,21 @@ def test_replace_applies_the_blocking_rules_to_the_new_employee(
     assert session.get(Assignment, assignment.id).user_id == employee.id
 
 
-def test_replace_warns_about_availability(
+def test_replace_warns_when_the_new_employee_marked_the_shift_unavailable(
+    session: Session, manager: User, employee: User, other_employee: User
+) -> None:
+    schedule, shift = make_schedule(session), shift_at(session)
+    assignment = make_assignment(session, schedule, shift, employee)
+    make_availability(session, shift, other_employee, UNAVAILABLE)
+
+    edit = service.replace_assignment(
+        session, manager, NEXT_WEEK, assignment.id, user_id=other_employee.id
+    )
+
+    assert codes(edit) == ["availability_ignored"]
+
+
+def test_replace_does_not_warn_when_the_new_employee_gave_no_answer(
     session: Session, manager: User, employee: User, other_employee: User
 ) -> None:
     schedule, shift = make_schedule(session), shift_at(session)
@@ -364,7 +406,7 @@ def test_replace_warns_about_availability(
         session, manager, NEXT_WEEK, assignment.id, user_id=other_employee.id
     )
 
-    assert codes(edit) == ["availability_ignored"]
+    assert edit.warnings == []
 
 
 def test_replace_with_the_same_employee_is_already_assigned(

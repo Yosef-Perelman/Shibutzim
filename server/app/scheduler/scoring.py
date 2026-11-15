@@ -26,8 +26,10 @@ def score(
 ) -> Score:
     """Score (shift_id, employee_id) pairs.
 
-    `participants` are the employees who answered at all; the spread is the gap between the
-    most and the least hours among them, so someone who asked for shifts and got none counts.
+    `participants` are the candidates: employees workable on at least one shift (anyone not marked
+    `unavailable` for it). The spread is the gap between the most and the least hours among them,
+    so someone who could work and got none counts. No answer scores like `available`; only
+    `preferred` earns the bonus.
     """
     minutes = {employee: 0 for employee in participants}
     filled = preferred = 0

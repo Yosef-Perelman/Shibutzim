@@ -12,12 +12,10 @@ from app.core.enums import AvailabilityStatus
 from app.scheduler.rules import SchedulingRules
 from app.scheduler.types import Constraint, Exclusion, Shift
 
-WORKABLE = frozenset({AvailabilityStatus.available, AvailabilityStatus.preferred})
-
 
 def is_workable(status: AvailabilityStatus | None) -> bool:
-    """Only an explicit `available` or `preferred` answer lets an employee work a shift."""
-    return status in WORKABLE
+    """No answer (None) counts as `available`; only an explicit `unavailable` rules a shift out."""
+    return status is not AvailabilityStatus.unavailable
 
 
 def overlaps(a: Shift, b: Shift) -> bool:
@@ -50,9 +48,9 @@ def violations(
 ) -> list[Exclusion]:
     """Every hard constraint broken by giving `shift` to an employee who already has `assigned`.
 
-    `status` is the employee's answer for `shift` (None if they gave none) and `blocked` says the
-    manager ruled them out of it. The candidate shift itself is ignored if it appears in
-    `assigned`, so a caller can pass an employee's full list.
+    `status` is the employee's answer for `shift` (None if they gave none, which counts as
+    available) and `blocked` says the manager ruled them out of it. The candidate shift itself is
+    ignored if it appears in `assigned`, so a caller can pass an employee's full list.
     """
     others = [other for other in assigned if other.id != shift.id]
     found: list[Exclusion] = []

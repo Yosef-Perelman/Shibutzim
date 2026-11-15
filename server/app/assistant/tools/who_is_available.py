@@ -50,6 +50,12 @@ def run(context: ToolContext, arguments: WhoIsAvailableArguments) -> dict[str, A
         "preferred": names[AvailabilityStatus.preferred],
         "available": names[AvailabilityStatus.available],
         "unavailable": names[AvailabilityStatus.unavailable],
+        "no_answer": [
+            user.name
+            for user in availability_service.list_without_answer_for_shift(
+                context.session, context.user, shift.id
+            )
+        ],
     }
 
 

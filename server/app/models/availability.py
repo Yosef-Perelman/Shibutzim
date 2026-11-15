@@ -6,7 +6,7 @@ from app.models.base import Base, IdMixin, text_enum
 
 
 class Availability(IdMixin, Base):
-    """An employee's answer for one shift; a missing row means `unavailable`."""
+    """An employee's answer for one shift; a missing row means `available`."""
 
     __tablename__ = "availabilities"
     __table_args__ = (UniqueConstraint("shift_id", "user_id"),)

@@ -46,7 +46,7 @@ and is treated as a serious breach.
 ## Availability
 
 Every week you tell the schedule which shifts of next week you can work. For each shift choose available,
-preferred or unavailable. A shift you do not answer counts as unavailable, so say yes to the shifts you want.
+preferred or unavailable. A shift you do not answer counts as available; mark the shifts you cannot work.
 Preferred shifts are given to you first whenever the schedule allows it. You can change your answers until the
 manager generates the schedule for that week. After that, ask your manager to change them. A week that is over can
 no longer be changed.

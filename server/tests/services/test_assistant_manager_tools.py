@@ -68,7 +68,68 @@ def test_who_is_available_groups_the_names_by_answer(
         "preferred": ["Eli Employee"],
         "available": ["Dana Other"],
         "unavailable": ["Zoe Zed"],
+        "no_answer": [],
     }
+
+
+def test_who_is_available_lists_active_employees_without_an_answer_as_no_answer(
+    session: Session, manager: User, employee: User, other_employee: User
+):
+    """No answer counts as available, so the tool shows them in their own group."""
+    shift = monday_shift(session)
+    make_availability(session, shift, employee, AvailabilityStatus.available)
+    # other_employee gave no answer for this shift
+
+    outcome = run(session, manager, "who_is_available", shift_id=shift.id)
+
+    assert outcome.content["available"] == ["Eli Employee"]
+    assert outcome.content["no_answer"] == ["Dana Other"]
+    assert outcome.content["preferred"] == []
+    assert outcome.content["unavailable"] == []
+
+
+def test_who_is_available_no_answer_names_every_employee_when_nobody_answered(
+    session: Session, manager: User, employee: User, other_employee: User
+):
+    shift = monday_shift(session)
+
+    outcome = run(session, manager, "who_is_available", shift_id=shift.id)
+
+    assert sorted(outcome.content["no_answer"]) == ["Dana Other", "Eli Employee"]
+    assert outcome.content["available"] == []
+
+
+def test_who_is_available_no_answer_leaves_out_managers_and_deactivated_employees(
+    session: Session, manager: User, employee: User
+):
+    shift = monday_shift(session)
+    make_user(session, name="Gone Gil", is_active=False)
+    make_user(session, role=Role.manager, name="Other Boss")
+
+    outcome = run(session, manager, "who_is_available", shift_id=shift.id)
+
+    assert outcome.content["no_answer"] == ["Eli Employee"]
+
+
+def test_who_is_available_no_answer_does_not_repeat_someone_who_answered(
+    session: Session, manager: User, employee: User
+):
+    shift = monday_shift(session)
+    make_availability(session, shift, employee, AvailabilityStatus.unavailable)
+
+    outcome = run(session, manager, "who_is_available", shift_id=shift.id)
+
+    assert outcome.content["no_answer"] == []
+    assert outcome.content["unavailable"] == ["Eli Employee"]
+
+
+def test_who_is_available_no_answer_is_per_shift(session: Session, manager: User, employee: User):
+    morning, evening = shifts_on_monday(session)
+    make_availability(session, morning, employee, AvailabilityStatus.available)
+
+    outcome = run(session, manager, "who_is_available", shift_id=evening.id)
+
+    assert outcome.content["no_answer"] == ["Eli Employee"]
 
 
 def test_who_is_available_for_a_missing_shift_is_a_tool_error(session: Session, manager: User):

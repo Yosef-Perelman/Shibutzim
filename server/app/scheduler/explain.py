@@ -1,10 +1,10 @@
 """Plain-language reasons for unfilled slots (product-definition §5.2).
 
 "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest": the shift's local
-weekday and start, how many are required and placed, then each employee who said they could work
-the shift but was excluded by a hard constraint, a manager's requested day off included.
-Employees who did not answer `available` are not listed, whatever else applies to them: they
-were never candidates.
+weekday and start, how many are required and placed, then each employee who could work the shift
+(said so, or gave no answer, which counts as available) but was excluded by a hard constraint, a
+manager's requested day off included. Employees who marked the shift `unavailable` are not listed,
+whatever else applies to them: they were never candidates.
 """
 
 from collections.abc import Iterable
@@ -47,10 +47,11 @@ def explain(
 
 
 def excluded_by(reasons: Iterable[Exclusion]) -> dict[int, list[str]]:
-    """employee id -> phrases of the hard constraints that blocked a willing employee, in id order.
+    """employee id -> phrases of the hard constraints that blocked a candidate, in id order.
 
-    Someone who did not answer `available` was never a candidate, so no other rule is blamed for
-    their absence even if one also applies.
+    Someone who marked the shift `unavailable` was never a candidate, so no other rule is blamed
+    for their absence even if one also applies. Someone with no answer counts as available, so
+    they are listed with their real reason.
     """
     reasons = list(reasons)
     unwilling = {r.employee_id for r in reasons if r.constraint is Constraint.availability}

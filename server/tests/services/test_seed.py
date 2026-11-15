@@ -239,10 +239,8 @@ def test_the_seeded_schedule_breaks_no_hard_constraint(seeded: Session) -> None:
         shift = shifts[assignment.shift_id]
         per_shift[shift.id].append(assignment.user_id)
         per_user[assignment.user_id].append(shift)
-        assert answers.get((shift.id, assignment.user_id)) in {
-            AvailabilityStatus.available,
-            AvailabilityStatus.preferred,
-        }
+        # no answer counts as available; only an explicit `unavailable` rules someone out
+        assert answers.get((shift.id, assignment.user_id)) is not AvailabilityStatus.unavailable
 
     assert all(len(people) <= shifts[sid].required_staff for sid, people in per_shift.items())
     for worked in per_user.values():
@@ -252,6 +250,30 @@ def test_the_seeded_schedule_breaks_no_hard_constraint(seeded: Session) -> None:
             later.starts_at - earlier.ends_at >= timedelta(hours=8)
             for earlier, later in zip(worked, worked[1:], strict=False)
         )
+
+
+def test_no_seeded_assignment_sits_on_an_unavailable_row(seeded: Session) -> None:
+    unavailable = {
+        (a.shift_id, a.user_id)
+        for a in seeded.scalars(
+            select(Availability).where(Availability.status == AvailabilityStatus.unavailable)
+        )
+    }
+    assigned = {(a.shift_id, a.user_id) for a in seeded.scalars(select(Assignment))}
+
+    assert unavailable  # the seed does contain unavailable answers for the check to mean something
+    assert assigned & unavailable == set()
+
+
+def test_the_seeded_current_week_is_fully_staffed(seeded: Session) -> None:
+    """Seven employees and no-answer-counts-as-available leave no position open."""
+    staffed = defaultdict(int)
+    for assignment in seeded.scalars(select(Assignment)):
+        staffed[assignment.shift_id] += 1
+    this_week = list(seeded.scalars(select(Shift).where(Shift.week_start == THIS_WEEK)))
+
+    assert this_week
+    assert {s.id: staffed[s.id] for s in this_week} == {s.id: s.required_staff for s in this_week}
 
 
 def test_seeded_assignments_go_to_employees_only(seeded: Session) -> None:

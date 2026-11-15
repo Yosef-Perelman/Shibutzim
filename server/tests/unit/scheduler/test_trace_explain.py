@@ -23,6 +23,7 @@ from app.scheduler import (
 from app.scheduler.explain import describe_shift, explain
 from tests.unit.scheduler.helpers import (
     AVAILABLE,
+    UNAVAILABLE,
     answers,
     employees,
     everyone_available,
@@ -53,7 +54,16 @@ STAFF = employees("Dana", "Noa", "Omer", "Tamar")
 
 def week_with_a_rest_conflict():
     shifts = [MONDAY_NIGHT, TUESDAY_MORNING]
-    given = answers((1, 1, AVAILABLE), (2, 1, AVAILABLE), (2, 2, AVAILABLE), (2, 3, AVAILABLE))
+    given = answers(
+        (1, 1, AVAILABLE),  # only Dana can work Monday night
+        (1, 2, UNAVAILABLE),
+        (1, 3, UNAVAILABLE),
+        (1, 4, UNAVAILABLE),
+        (2, 1, AVAILABLE),
+        (2, 2, AVAILABLE),
+        (2, 3, AVAILABLE),
+        (2, 4, UNAVAILABLE),  # Tamar marked Tuesday unavailable
+    )
     return shifts, STAFF, given
 
 
@@ -78,13 +88,24 @@ def test_trace_does_not_change_the_schedule() -> None:
     assert traced.trace != ()
 
 
-def test_trace_records_the_availability_exclusions_of_the_input() -> None:
+def test_trace_records_the_unavailable_exclusions_of_the_input() -> None:
     shifts, staff, given = week_with_a_rest_conflict()
 
     trace = solve(shifts, staff, given, RULES, trace=True).trace
 
     assert TraceEvent(TraceKind.exclude, 2, 4, Constraint.availability) in trace
     assert TraceEvent(TraceKind.exclude, 1, 2, Constraint.availability) in trace
+
+
+def test_trace_records_no_availability_exclusion_for_an_employee_with_no_answer() -> None:
+    shifts = [make_shift(1)]
+    staff = employees("Noa", "Omer")
+    given = answers((1, 2, UNAVAILABLE))  # Noa gave no answer
+
+    trace = solve(shifts, staff, given, RULES, trace=True).trace
+
+    assert TraceEvent(TraceKind.exclude, 1, 2, Constraint.availability) in trace
+    assert TraceEvent(TraceKind.exclude, 1, 1, Constraint.availability) not in trace
 
 
 def test_trace_records_the_blocked_exclusions_of_the_input() -> None:
@@ -110,6 +131,15 @@ def test_trace_names_the_shift_that_excluded_a_candidate_by_minimum_rest() -> No
     trace = solve(shifts, staff, given, RULES, trace=True).trace
 
     assert TraceEvent(TraceKind.exclude, 2, 1, Constraint.min_rest, other_shift_id=1) in trace
+
+
+def test_trace_names_the_minimum_rest_exclusion_of_an_employee_with_no_answer() -> None:
+    shifts = [MONDAY_NIGHT, local_shift(3, date(2026, 3, 10), time(7), time(15))]
+    staff = employees("Dana")  # Dana answered nothing at all
+
+    trace = solve(shifts, staff, [], RULES, trace=True).trace
+
+    assert TraceEvent(TraceKind.exclude, 3, 1, Constraint.min_rest, other_shift_id=1) in trace
 
 
 def test_trace_records_exclusion_by_max_shifts_per_week() -> None:
@@ -210,7 +240,7 @@ def test_explain_joins_several_constraints_of_one_employee() -> None:
     ]
 
 
-def test_explain_leaves_out_employees_who_simply_did_not_answer_available() -> None:
+def test_explain_leaves_out_employees_who_marked_the_shift_unavailable() -> None:
     unfilled = UnfilledSlot(
         shift_id=2,
         required=2,
@@ -255,8 +285,8 @@ def test_explain_names_a_constraint_once_even_when_two_shifts_cause_it() -> None
     assert sentences == ["Tuesday 07:00 needs 2, only 1 available; Dana excluded by minimum rest"]
 
 
-def test_explain_skips_an_unanswered_employee_even_if_a_rule_also_blocks() -> None:
-    """Dana never said she could work Tuesday: minimum rest is not why she is missing."""
+def test_explain_skips_an_unavailable_employee_even_if_a_rule_also_blocks() -> None:
+    """Dana marked Tuesday unavailable: minimum rest is not why she is missing."""
     unfilled = UnfilledSlot(
         shift_id=2,
         required=3,
@@ -290,7 +320,7 @@ def test_explain_names_a_requested_day_off_as_the_reason() -> None:
     ]
 
 
-def test_explain_a_block_on_an_employee_who_was_not_available_stays_silent() -> None:
+def test_explain_a_block_on_an_employee_who_marked_unavailable_stays_silent() -> None:
     unfilled = UnfilledSlot(
         shift_id=2,
         required=2,
@@ -312,3 +342,45 @@ def test_solve_explains_a_blocked_employee_end_to_end() -> None:
 
     assert len(sentences) == 1
     assert sentences[0].endswith("only 1 available; Dana excluded by a requested day off")
+
+
+def test_solve_explains_the_minimum_rest_of_an_employee_who_gave_no_answer() -> None:
+    """Dana answered nothing for Tuesday, so she counts as available and her real reason shows."""
+    shifts = [MONDAY_NIGHT, TUESDAY_MORNING]
+    given = answers(
+        (1, 1, AVAILABLE),
+        (1, 2, UNAVAILABLE),
+        (1, 3, UNAVAILABLE),
+        (1, 4, UNAVAILABLE),
+        (2, 2, AVAILABLE),
+        (2, 3, AVAILABLE),
+        (2, 4, UNAVAILABLE),
+    )
+    result = solve(shifts, STAFF, given, RULES)
+
+    sentences = explain(result, shifts, STAFF, TZ)
+
+    assert sentences == ["Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest"]
+
+
+def test_solve_explains_an_employee_with_no_answer_who_is_over_the_weekly_limit() -> None:
+    shifts = [make_shift(1, day=0), make_shift(2, day=1), make_shift(3, day=2)]
+    staff = employees("Noa", "Omer")
+    rules = SchedulingRules(min_rest_hours=8, max_shifts_per_week=1)
+    given = answers((3, 2, UNAVAILABLE))  # nobody else answered anything
+    result = solve(shifts, staff, given, rules)
+
+    sentences = explain(result, shifts, staff, TZ)
+
+    assert result.unfilled != ()
+    assert any("Noa excluded by max shifts per week" in sentence for sentence in sentences)
+
+
+def test_solve_explanation_names_nobody_who_marked_the_shift_unavailable() -> None:
+    staff = employees("Dana", "Noa")
+    shift = make_shift(1, staff=2)
+    given = answers((1, 1, UNAVAILABLE))  # Noa gave no answer and is placed
+
+    result = solve([shift], staff, given, RULES)
+
+    assert explain(result, [shift], staff, TZ) == ["Monday 09:00 needs 2, only 1 available"]

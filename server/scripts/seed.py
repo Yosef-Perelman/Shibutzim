@@ -83,7 +83,7 @@ AVAILABILITY_CYCLE = [
     AvailabilityStatus.available,
     AvailabilityStatus.preferred,
     AvailabilityStatus.unavailable,
-    None,  # no answer, which counts as unavailable
+    None,  # no answer, which counts as available
 ]
 
 

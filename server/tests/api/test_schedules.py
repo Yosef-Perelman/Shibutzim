@@ -361,7 +361,7 @@ def test_add_returns_201_the_assignment_and_no_warnings(
     assert body["warnings"] == []
 
 
-def test_add_for_an_employee_who_did_not_answer_returns_a_warning(
+def test_add_for_an_employee_who_did_not_answer_returns_no_warning(
     manager_client: TestClient, session: Session, employee: User
 ) -> None:
     shift = monday_shift(session)
@@ -370,8 +370,23 @@ def test_add_for_an_employee_who_did_not_answer_returns_a_warning(
     response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
 
     assert response.status_code == 201
-    assert [w["code"] for w in response.json()["warnings"]] == ["availability_ignored"]
-    assert "Eli Employee" in response.json()["warnings"][0]["message"]
+    assert response.json()["warnings"] == []
+
+
+def test_add_for_an_employee_who_marked_the_shift_unavailable_returns_a_warning(
+    manager_client: TestClient, session: Session, employee: User
+) -> None:
+    shift = monday_shift(session)
+    make_schedule(session)
+    make_availability(session, shift, employee, AvailabilityStatus.unavailable)
+
+    response = manager_client.post(edit_url(), json={"shift_id": shift.id, "user_id": employee.id})
+
+    assert response.status_code == 201
+    warnings = response.json()["warnings"]
+    assert [w["code"] for w in warnings] == ["availability_ignored"]
+    assert "Eli Employee marked" in warnings[0]["message"]
+    assert "unavailable" in warnings[0]["message"]
 
 
 def test_add_of_an_overlapping_shift_returns_409(

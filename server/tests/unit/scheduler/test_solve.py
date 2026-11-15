@@ -2,6 +2,9 @@
 
 Matrix: no solution, tight solution, fairness, each hard constraint in isolation (availability,
 required staff, overlap, minimum rest, max shifts per week), preferred shifts honored when possible.
+
+No answer counts as `available` (product-definition §5.1): a test that needs someone excluded says
+so with an explicit `unavailable` row (`only_these` fills in the rest).
 """
 
 import random
@@ -33,6 +36,7 @@ from tests.unit.scheduler.helpers import (
     employees,
     everyone_available,
     make_shift,
+    only_these,
 )
 
 RULES = SchedulingRules(min_rest_hours=8, max_shifts_per_week=5)
@@ -78,10 +82,20 @@ def test_solve_with_no_employees_leaves_every_position_unfilled() -> None:
     ]
 
 
-def test_solve_with_a_shift_nobody_answered_for_reports_availability_for_everyone() -> None:
+def test_solve_with_a_shift_nobody_answered_for_still_fills_it() -> None:
     staff = employees("Noa", "Omer")
 
     result = solve([make_shift(1)], staff, [], RULES)
+
+    assert len(staffed(result)[1]) == 1
+    assert result.unfilled == ()
+
+
+def test_solve_with_a_shift_everyone_marked_unavailable_reports_availability_for_everyone() -> None:
+    staff = employees("Noa", "Omer")
+    given = answers((1, 1, UNAVAILABLE), (1, 2, UNAVAILABLE))
+
+    result = solve([make_shift(1)], staff, given, RULES)
 
     assert result.assignments == ()
     assert result.unfilled[0].reasons == (
@@ -116,9 +130,13 @@ def test_solve_no_solution_reports_the_unfilled_slot_with_the_reason() -> None:
     staff = employees("Dana", "Noa", "Omer", "Tamar")
     given = answers(
         (1, 1, AVAILABLE),  # only Dana can work Monday night
+        (1, 2, UNAVAILABLE),
+        (1, 3, UNAVAILABLE),
+        (1, 4, UNAVAILABLE),
         (2, 1, AVAILABLE),
         (2, 2, AVAILABLE),
         (2, 3, AVAILABLE),
+        (2, 4, UNAVAILABLE),  # Tamar marked Tuesday unavailable
     )
 
     result = solve([monday_night, tuesday_morning], staff, given, RULES)
@@ -136,14 +154,60 @@ def test_solve_no_solution_reports_the_unfilled_slot_with_the_reason() -> None:
     assert_hard_constraints(result, [monday_night, tuesday_morning], given, RULES)
 
 
-def test_solve_no_answer_counts_as_unavailable() -> None:
+def test_solve_no_answer_counts_as_available() -> None:
     staff = employees("Noa", "Omer")
     given = answers((1, 1, AVAILABLE))  # Omer never answered
 
     result = solve([make_shift(1, staff=2)], staff, given, RULES)
 
+    assert staffed(result) == {1: {1, 2}}
+    assert result.unfilled == ()
+    assert result.score.filled == 2
+
+
+def test_solve_a_preferred_answer_still_beats_no_answer() -> None:
+    staff = employees("Noa", "Omer")
+    given = answers((1, 2, PREFERRED))  # Noa never answered
+
+    result = solve([make_shift(1)], staff, given, RULES)
+
+    assert staffed(result) == {1: {2}}
+    assert result.score.preferred == 1
+
+
+def test_solve_no_answer_earns_no_preferred_bonus() -> None:
+    staff = employees("Noa")
+
+    result = solve([make_shift(1)], staff, [], RULES)
+
     assert staffed(result) == {1: {1}}
-    assert result.unfilled[0].reasons == (Exclusion(2, Constraint.availability),)
+    assert (result.score.filled, result.score.preferred, result.score.value) == (1, 0, 0)
+
+
+def test_solve_a_block_excludes_an_employee_who_gave_no_answer() -> None:
+    staff = employees("Noa", "Omer")
+
+    result = solve([make_shift(1)], staff, [], RULES, blocks=[Block(1, 1)])
+
+    assert staffed(result) == {1: {2}}
+
+
+def test_solve_a_blocked_employee_with_no_answer_is_reported_as_blocked() -> None:
+    staff = employees("Noa")
+
+    result = solve([make_shift(1)], staff, [], RULES, blocks=[Block(1, 1)])
+
+    assert result.unfilled[0].reasons == (Exclusion(1, Constraint.blocked),)
+
+
+def test_solve_an_unavailable_answer_wins_over_the_default_for_that_shift_only() -> None:
+    shifts = [make_shift(1, day=0), make_shift(2, day=1)]
+    staff = employees("Noa")
+    given = answers((1, 1, UNAVAILABLE))  # no answer for shift 2
+
+    result = solve(shifts, staff, given, RULES)
+
+    assert staffed(result) == {2: {1}}
 
 
 def test_solve_proves_the_best_coverage_of_an_infeasible_week_and_says_it_is_complete() -> None:
@@ -165,7 +229,9 @@ def test_solve_tight_solution_uses_exactly_the_staff_there_is() -> None:
     """Three concurrent shifts, three employees, one perfect matching (C->3, B->2, A->1)."""
     shifts = [make_shift(1), make_shift(2), make_shift(3)]
     staff = employees("A", "B", "C")
-    given = answers(
+    given = only_these(
+        shifts,
+        staff,
         (1, 1, AVAILABLE),
         (2, 1, AVAILABLE),
         (2, 2, AVAILABLE),
@@ -184,7 +250,9 @@ def test_solve_tight_solution_where_a_preference_competes_with_coverage() -> Non
     shifts = [make_shift(1, day=0), make_shift(2, day=1), make_shift(3, day=2)]
     staff = employees("A", "B", "C")
     rules = SchedulingRules(min_rest_hours=8, max_shifts_per_week=1)
-    given = answers(
+    given = only_these(
+        shifts,
+        staff,
         (1, 1, PREFERRED),  # A is the tempting first choice for shift 1 ...
         (1, 2, AVAILABLE),
         (2, 1, AVAILABLE),  # ... but A is the only one for shift 2
@@ -218,6 +286,16 @@ def test_solve_spreads_six_shifts_over_three_employees() -> None:
     result = solve(shifts, staff, everyone_available(shifts, staff), RULES)
 
     assert hours_by_employee(result, shifts) == {1: 16, 2: 16, 3: 16}
+
+
+def test_solve_spreads_hours_evenly_between_employees_who_gave_no_answer() -> None:
+    shifts = [make_shift(index, day=index - 1) for index in range(1, 5)]
+    staff = employees("Noa", "Omer")
+
+    result = solve(shifts, staff, [], RULES)
+
+    assert hours_by_employee(result, shifts) == {1: 16, 2: 16}
+    assert result.score.spread_minutes == 0
 
 
 def test_solve_balances_unequal_shift_lengths() -> None:
@@ -260,7 +338,7 @@ def test_solve_never_exceeds_the_required_staff() -> None:
 def test_solve_never_double_books_overlapping_shifts() -> None:
     first, second = make_shift(1, hour=7, hours=8), make_shift(2, hour=10, hours=8)
     staff = employees("Noa", "Omer")
-    given = answers((1, 1, AVAILABLE), (2, 1, AVAILABLE), (2, 2, AVAILABLE))
+    given = answers((1, 1, AVAILABLE), (1, 2, UNAVAILABLE), (2, 1, AVAILABLE), (2, 2, AVAILABLE))
 
     result = solve([first, second], staff, given, RULES)
 
@@ -431,7 +509,7 @@ def test_solve_honors_each_employees_preferences_across_shifts() -> None:
 def test_solve_gives_up_a_preference_rather_than_leave_a_position_unfilled() -> None:
     first, second = make_shift(1, hour=7, hours=8), make_shift(2, hour=10, hours=8)  # overlap
     staff = employees("Noa", "Omer")
-    given = answers((1, 1, PREFERRED), (1, 2, AVAILABLE), (2, 1, AVAILABLE))
+    given = answers((1, 1, PREFERRED), (1, 2, AVAILABLE), (2, 1, AVAILABLE), (2, 2, UNAVAILABLE))
 
     result = solve([first, second], staff, given, RULES)
 
@@ -552,7 +630,7 @@ def test_solve_fills_as_many_positions_as_exhaustive_search_and_breaks_no_rule(s
 
 
 @pytest.mark.parametrize("seed", range(40))
-def test_solve_with_random_blocks_matches_exhaustive_search_without_those_answers(
+def test_solve_with_random_blocks_matches_exhaustive_search_with_those_pairs_unavailable(
     seed: int,
 ) -> None:
     shifts, staff, given, rules = random_instance(seed)
@@ -564,7 +642,11 @@ def test_solve_with_random_blocks_matches_exhaustive_search_without_those_answer
         if rng.random() < 0.25
     ]
     blocked = {(block.shift_id, block.employee_id) for block in blocks}
-    open_answers = [a for a in given if (a.shift_id, a.employee_id) not in blocked]
+    # a block is an explicit exclusion: the same pair marked unavailable, whatever was answered
+    open_answers = [a for a in given if (a.shift_id, a.employee_id) not in blocked] + [
+        Availability(shift_id, employee_id, UNAVAILABLE)
+        for shift_id, employee_id in sorted(blocked)
+    ]
 
     result = solve(shifts, staff, given, rules, blocks=blocks)
 
