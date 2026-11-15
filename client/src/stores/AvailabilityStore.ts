@@ -23,7 +23,7 @@ export interface AvailabilityRow {
 
 type Answers = Record<number, AvailabilityStatus>;
 
-const DEFAULT_STATUS: AvailabilityStatus = 'unavailable';
+const DEFAULT_STATUS: AvailabilityStatus = 'available';
 const AVAILABILITY_LOCKED = 'availability_locked';
 
 function messageOf(error: unknown): string {
@@ -32,8 +32,9 @@ function messageOf(error: unknown): string {
 
 /**
  * One employee's answers for one week (product-definition §5.1). `saved` is what the server has,
- * `draft` what the form changed since. A shift with no answer counts as unavailable; the server
- * stays the real guard of the lock, the store only explains it.
+ * `draft` what the form changed since. A shift with no answer counts as available, so only an
+ * explicit answer that differs from the saved one (or the default) is a change and is sent; the
+ * server stays the real guard of the lock, the store only explains it.
  */
 export class AvailabilityStore {
   weekStart: string;

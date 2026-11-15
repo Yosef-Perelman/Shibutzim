@@ -53,7 +53,7 @@ describe('AvailabilityStore.loadWeek', () => {
     expect(setup().store.weekStart).toBe(NEXT_WEEK);
   });
 
-  it("lists the week's shifts earliest first, an unanswered shift counting as unavailable", async () => {
+  it("lists the week's shifts earliest first, an unanswered shift counting as available", async () => {
     const { api, store } = setup({ answers: [answer(1, 1, 'preferred')] });
     await store.loadWeek(NEXT_WEEK);
     expect(api.shifts.list).toHaveBeenCalledWith(NEXT_WEEK);
@@ -61,8 +61,18 @@ describe('AvailabilityStore.loadWeek', () => {
     expect(store.status).toBe('loaded');
     expect(store.rows.map((row) => [row.shift.id, row.status])).toEqual([
       [1, 'preferred'],
+      [2, 'available'],
+      [3, 'available'],
+    ]);
+  });
+
+  it('shows an explicitly unavailable answer as unavailable', async () => {
+    const { store } = setup({ answers: [answer(1, 2, 'unavailable')] });
+    await store.loadWeek(NEXT_WEEK);
+    expect(store.rows.map((row) => [row.shift.id, row.status])).toEqual([
+      [1, 'available'],
       [2, 'unavailable'],
-      [3, 'unavailable'],
+      [3, 'available'],
     ]);
   });
 
@@ -110,17 +120,39 @@ describe('AvailabilityStore answers', () => {
     expect(store.isDirty).toBe(false);
   });
 
-  it('treats answering "unavailable" for an unanswered shift as no change', async () => {
+  it('treats answering "available" for an unanswered shift as no change', async () => {
+    const { store } = setup();
+    await store.loadWeek(NEXT_WEEK);
+    store.setAnswer(2, 'available');
+    expect(store.isDirty).toBe(false);
+  });
+
+  it('treats answering "unavailable" for an unanswered shift as a change', async () => {
     const { store } = setup();
     await store.loadWeek(NEXT_WEEK);
     store.setAnswer(2, 'unavailable');
+    expect(store.isDirty).toBe(true);
+  });
+
+  it('treats answering "preferred" for an unanswered shift as a change', async () => {
+    const { store } = setup();
+    await store.loadWeek(NEXT_WEEK);
+    store.setAnswer(2, 'preferred');
+    expect(store.isDirty).toBe(true);
+  });
+
+  it('is clean again after changing an unanswered shift to unavailable and back to available', async () => {
+    const { store } = setup();
+    await store.loadWeek(NEXT_WEEK);
+    store.setAnswer(2, 'unavailable');
+    store.setAnswer(2, 'available');
     expect(store.isDirty).toBe(false);
   });
 
   it('ignores changes on a read-only week', async () => {
     const { store } = setup({ scheduleExists: true });
     await store.loadWeek(NEXT_WEEK);
-    store.setAnswer(1, 'available');
+    store.setAnswer(1, 'unavailable');
     expect(store.isDirty).toBe(false);
   });
 });
@@ -130,10 +162,10 @@ describe('AvailabilityStore.save', () => {
     const { api, store } = setup({ answers: [answer(1, 1, 'available')] });
     await store.loadWeek(NEXT_WEEK);
     store.setAnswer(1, 'preferred');
-    store.setAnswer(3, 'available');
+    store.setAnswer(3, 'unavailable');
     api.availabilities.set.mockResolvedValue([
       answer(1, 1, 'preferred'),
-      answer(5, 3, 'available'),
+      answer(5, 3, 'unavailable'),
     ]);
     const ok = await store.save();
     expect(ok).toBe(true);
@@ -141,18 +173,31 @@ describe('AvailabilityStore.save', () => {
       week_start: NEXT_WEEK,
       items: [
         { shift_id: 1, status: 'preferred' },
-        { shift_id: 3, status: 'available' },
+        { shift_id: 3, status: 'unavailable' },
       ],
     });
     expect(store.isDirty).toBe(false);
     expect(store.isSaving).toBe(false);
-    expect(store.rows.map((row) => row.status)).toEqual(['preferred', 'unavailable', 'available']);
+    expect(store.rows.map((row) => row.status)).toEqual(['preferred', 'available', 'unavailable']);
+  });
+
+  it('sends an unavailable answer for a previously unanswered shift', async () => {
+    const { api, store } = setup();
+    await store.loadWeek(NEXT_WEEK);
+    store.setAnswer(2, 'unavailable');
+    api.availabilities.set.mockResolvedValue([answer(7, 2, 'unavailable')]);
+    expect(await store.save()).toBe(true);
+    expect(api.availabilities.set).toHaveBeenCalledWith({
+      week_start: NEXT_WEEK,
+      items: [{ shift_id: 2, status: 'unavailable' }],
+    });
+    expect(store.isDirty).toBe(false);
   });
 
   it('keeps the changes and shows the server message when saving fails', async () => {
     const { api, store } = setup();
     await store.loadWeek(NEXT_WEEK);
-    store.setAnswer(1, 'available');
+    store.setAnswer(1, 'unavailable');
     api.availabilities.set.mockRejectedValue(
       new ApiError(500, 'internal_error', 'Something went wrong on our side.'),
     );
@@ -165,7 +210,7 @@ describe('AvailabilityStore.save', () => {
   it('turns read-only when the server says the week is locked', async () => {
     const { api, store } = setup();
     await store.loadWeek(NEXT_WEEK);
-    store.setAnswer(1, 'available');
+    store.setAnswer(1, 'unavailable');
     api.availabilities.set.mockRejectedValue(
       new ApiError(409, 'availability_locked', 'This week is already scheduled.'),
     );
