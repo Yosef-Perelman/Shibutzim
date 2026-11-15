@@ -25,7 +25,7 @@ export function AvailabilityControl({
   disabled,
   label,
 }: AvailabilityControlProps) {
-  const selected = OPTIONS.find((option) => option.value === value) ?? OPTIONS[2];
+  const selected = OPTIONS.find((option) => option.value === value) ?? OPTIONS[0];
   return (
     <SegmentedControl
       fullWidth

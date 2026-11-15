@@ -68,7 +68,8 @@ Acceptance criteria:
 
 - The employee sees next week's shifts (generated from the shift templates) and can set or change a status per
   shift until the manager generates the schedule.
-- A shift with **no answer counts as `unavailable`** for the solver. Opting in is explicit.
+- A shift with **no answer counts as `available`** for the solver. Opting out is explicit: the employee marks the
+  shifts they cannot work `unavailable`.
 - Availability for past weeks is read-only.
 
 ### 5.2 Auto-scheduling
@@ -78,10 +79,12 @@ The manager clicks **Generate** for a week. The solver (a constraint-satisfactio
 
 Acceptance criteria:
 
+- The manager's **Schedule board** opens on the current week; next week is one click away ("Next week"), and a link
+  with `?week=<Sunday>` opens a given week (the assistant's proposal card uses it to open the week it drafted).
 - Generate creates a draft; generating again replaces the current draft. A published schedule is never replaced by
   Generate.
-- The draft respects every **hard constraint**: an employee is only placed on a shift they marked `available` or
-  `preferred`; each shift gets its `required_staff`; no employee works two overlapping shifts; a minimum rest
+- The draft respects every **hard constraint**: an employee is never placed on a shift they marked `unavailable`
+  (no answer counts as `available`); each shift gets its `required_staff`; no employee works two overlapping shifts; a minimum rest
   (default 8 hours, configurable) separates an employee's consecutive shifts; no employee has more than 5 shifts
   per week.
 - The solver optimizes **soft constraints**: fair distribution of hours across employees and honoring `preferred`
@@ -134,7 +137,10 @@ Acceptance criteria:
   **Confirm / Cancel**. Confirming calls the normal REST endpoint; nothing is written until then.
 - The assistant refuses, with a clear message, anything outside its tools or outside the user's role.
 - Every tool call is logged with tool name, arguments, user, duration and result size.
-- Conversation state is held by the client in v1 (the client sends the history with each message).
+- Conversation state is held by the client in v1 (the client sends the history with each message), in memory only:
+  it is cleared on sign-out, Demo-user switch, session expiry and **New conversation**, and never persisted in the
+  browser, so a closed or reloaded tab forgets it. The server stores no message text, so one person's conversation
+  is never shown to another.
 
 ### 5.6 Team
 
@@ -176,7 +182,8 @@ Acceptance criteria:
 
 - A **week starts on Sunday** and is identified by that Sunday's date (`week_start`).
 - Shifts for a week are generated from the active **shift templates** (weekday, start, end, `required_staff`).
-- **Hard constraints** (never violated by the solver): availability, `required_staff`, no overlap, minimum rest
+- **Hard constraints** (never violated by the solver): availability (never a shift marked `unavailable`; no answer
+  counts as `available`), `required_staff`, no overlap, minimum rest
   (default 8h), max 5 shifts per employee per week.
 - **Soft constraints** (optimized): fair distribution of hours, `preferred` shifts honored.
 - The solver has a search budget (a count of search steps, so results are reproducible) and returns the best schedule

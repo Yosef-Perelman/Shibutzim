@@ -56,7 +56,8 @@ export const AvailabilityForm = observer(function AvailabilityForm() {
           </Alert>
         ) : (
           <Text c="ink.6">
-            Choose when you can work. A shift you do not answer counts as unavailable.
+            Choose when you can work. A shift you do not answer counts as available; mark the ones
+            you cannot work.
           </Text>
         )}
         {[...days.entries()].map(([date, rows]) => (

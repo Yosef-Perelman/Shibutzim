@@ -62,6 +62,53 @@ describe('AvailabilityForm', () => {
     await waitFor(() => expect(save).toBeDisabled());
   });
 
+  it('explains that a shift with no answer counts as available', async () => {
+    await renderWithStores(<AvailabilityForm />, { api: openApi() });
+    expect(
+      await screen.findByText(
+        'Choose when you can work. A shift you do not answer counts as available; mark the ones you cannot work.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an unanswered shift as available', async () => {
+    await renderWithStores(<AvailabilityForm />, { api: openApi() });
+    const morning = await screen.findByRole('radiogroup', { name: /07:00 Morning/ });
+    const evening = screen.getByRole('radiogroup', { name: /16:00 Evening/ });
+    for (const group of [morning, evening]) {
+      expect(group.querySelector('input[value="available"]')).toBeChecked();
+      expect(group.querySelector('input[value="unavailable"]')).not.toBeChecked();
+    }
+  });
+
+  it('keeps Save disabled when available is chosen for an unanswered shift', async () => {
+    await renderWithStores(<AvailabilityForm />, { api: openApi() });
+    const morning = await screen.findByRole('radiogroup', { name: /07:00 Morning/ });
+    await userEvent.click(morning.querySelector('input[value="available"]') as Element);
+    expect(screen.getByRole('button', { name: 'Save availability' })).toBeDisabled();
+  });
+
+  it('enables Save for unavailable on an unanswered shift and sends that row', async () => {
+    const api = openApi();
+    api.availabilities.set.mockResolvedValue([
+      { id: 1, shift_id: 1, user_id: 1, status: 'unavailable' },
+    ]);
+    await renderWithStores(<AvailabilityForm />, { api });
+    const morning = await screen.findByRole('radiogroup', { name: /07:00 Morning/ });
+    const save = screen.getByRole('button', { name: 'Save availability' });
+    expect(save).toBeDisabled();
+
+    await userEvent.click(morning.querySelector('input[value="unavailable"]') as Element);
+    expect(save).toBeEnabled();
+
+    await userEvent.click(save);
+    await waitFor(() => expect(api.availabilities.set).toHaveBeenCalledTimes(1));
+    expect(api.availabilities.set).toHaveBeenCalledWith(
+      expect.objectContaining({ items: [{ shift_id: 1, status: 'unavailable' }] }),
+    );
+    await waitFor(() => expect(save).toBeDisabled());
+  });
+
   it('is read-only with an explanation once the week has a schedule', async () => {
     await renderWithStores(<AvailabilityForm />, { api: openApi(true) });
     expect(await screen.findByText(/schedule for this week already exists/i)).toBeInTheDocument();
@@ -84,7 +131,7 @@ describe('AvailabilityForm', () => {
     );
     await renderWithStores(<AvailabilityForm />, { api });
     const morning = await screen.findByRole('radiogroup', { name: /07:00 Morning/ });
-    await userEvent.click(morning.querySelector('input[value="available"]') as Element);
+    await userEvent.click(morning.querySelector('input[value="unavailable"]') as Element);
     await userEvent.click(screen.getByRole('button', { name: 'Save availability' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side.');
     expect(screen.getByRole('button', { name: 'Save availability' })).toBeEnabled();

@@ -171,7 +171,7 @@ gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --body "$WIF_PROVIDER"
 gh variable set GCP_DEPLOY_SERVICE_ACCOUNT --body "$DEPLOY_SA"
 gh variable set GCP_RUNTIME_SERVICE_ACCOUNT --body "$RUNTIME_SA"
 # Demo accounts offered on the login screen. Empty hides the switch (a real customer build).
-gh variable set DEMO_USERS --body "dana@shibutzim.example,noa@shibutzim.example,omer@shibutzim.example,tamar@shibutzim.example,yonatan@shibutzim.example,lior@shibutzim.example"
+gh variable set DEMO_USERS --body "dana@shibutzim.example,noa@shibutzim.example,omer@shibutzim.example,tamar@shibutzim.example,yonatan@shibutzim.example,lior@shibutzim.example,maya@shibutzim.example,itai@shibutzim.example"
 ```
 
 ### 10. Demo data and the handbook, once

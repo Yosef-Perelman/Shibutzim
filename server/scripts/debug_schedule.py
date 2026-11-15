@@ -71,7 +71,7 @@ def unfilled_lines(proposal: Proposal) -> list[str]:
         lines.append(f"- {sentence}")
         blocked: dict[int, list[str]] = defaultdict(list)
         unwilling = {r.employee_id for r in slot.reasons if r.constraint is Constraint.availability}
-        unanswered = [names[employee_id] for employee_id in sorted(unwilling)]
+        marked_unavailable = [names[employee_id] for employee_id in sorted(unwilling)]
         for reason in slot.reasons:
             if reason.employee_id in unwilling:
                 continue  # never a candidate, so no other rule is the cause
@@ -84,8 +84,8 @@ def unfilled_lines(proposal: Proposal) -> list[str]:
                 detail += f" with {describe_shift(solver_shift, zone)}"
             blocked[reason.employee_id].append(detail)
         lines += [f"    {names[who]}: {', '.join(details)}" for who, details in blocked.items()]
-        if unanswered:
-            lines.append(f"    Did not answer available: {', '.join(unanswered)}")
+        if marked_unavailable:
+            lines.append(f"    Marked unavailable: {', '.join(marked_unavailable)}")
     return lines
 
 
@@ -113,9 +113,7 @@ def what_if_lines(
         delta = alternative - filled
         outcome = f"fills {alternative} of {total} ({delta:+d})" if delta else "no change"
         lines.append(f"- {label}: {outcome}")
-    lines.append(
-        "- Asking the employees listed under 'Did not answer available' is the other lever."
-    )
+    lines.append("- Asking the employees listed under 'Marked unavailable' is the other lever.")
     return lines
 
 

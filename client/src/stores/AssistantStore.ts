@@ -46,10 +46,16 @@ export class AssistantStore {
 
   private readonly api: AssistantStoreOptions['api'];
   private nextId = 1;
+  // Bumped by reset(): an answer to a question asked before it belongs to nobody now.
+  private generation = 0;
 
   constructor(options: AssistantStoreOptions) {
     this.api = options.api;
-    makeAutoObservable<AssistantStore, 'api' | 'nextId'>(this, { api: false, nextId: false });
+    makeAutoObservable<AssistantStore, 'api' | 'nextId' | 'generation'>(this, {
+      api: false,
+      nextId: false,
+      generation: false,
+    });
   }
 
   /** What the server gets: the last messages, each cut to the length it accepts. */
@@ -86,18 +92,21 @@ export class AssistantStore {
         message: 'There is no proposal waiting to confirm.',
       };
     }
+    const generation = this.generation;
     this.isConfirming = true;
     try {
       await this.api.schedules.generate(proposal.week_start, {
         unavailable: proposal.unavailable.map(({ user_id, day }) => ({ user_id, day })),
       });
-      runInAction(() => this.setProposalState(entryId, 'confirmed'));
+      runInAction(() => {
+        if (generation === this.generation) this.setProposalState(entryId, 'confirmed');
+      });
       return OK;
     } catch (error) {
       return failure(error);
     } finally {
       runInAction(() => {
-        this.isConfirming = false;
+        if (generation === this.generation) this.isConfirming = false;
       });
     }
   }
@@ -110,15 +119,20 @@ export class AssistantStore {
     this.messages = [];
     this.error = null;
     this.isUnavailable = false;
+    this.isSending = false;
+    this.isConfirming = false;
+    this.generation += 1;
   }
 
   private async ask(): Promise<void> {
+    const generation = this.generation;
     this.isSending = true;
     this.error = null;
     this.isUnavailable = false;
     try {
       const reply = await this.api.assistant.chat(this.history);
       runInAction(() => {
+        if (generation !== this.generation) return;
         this.messages.push({
           ...this.entry('assistant', reply.message),
           citations: reply.citations,
@@ -128,12 +142,13 @@ export class AssistantStore {
       });
     } catch (error) {
       runInAction(() => {
+        if (generation !== this.generation) return;
         this.error = messageOf(error);
         this.isUnavailable = error instanceof ApiError && error.code === UNAVAILABLE_CODE;
       });
     } finally {
       runInAction(() => {
-        this.isSending = false;
+        if (generation === this.generation) this.isSending = false;
       });
     }
   }

@@ -21,15 +21,29 @@ export class TeamStore {
 
   private readonly api: TeamStoreOptions['api'];
   private requestId = 0;
+  // Bumped by reset(): a change that finishes after it must not repopulate the list.
+  private epoch = 0;
 
   constructor(options: TeamStoreOptions) {
     this.api = options.api;
-    makeAutoObservable<TeamStore, 'api' | 'requestId'>(this, { api: false, requestId: false });
+    makeAutoObservable<TeamStore, 'api' | 'requestId' | 'epoch'>(this, {
+      api: false,
+      requestId: false,
+      epoch: false,
+    });
   }
 
   /** Everyone, active or not, by name; the server decides who may see this list. */
   get people(): User[] {
     return [...this.users].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+  }
+
+  reset(): void {
+    this.requestId += 1;
+    this.epoch += 1;
+    this.users = [];
+    this.status = 'idle';
+    this.error = null;
   }
 
   async load(): Promise<void> {
@@ -55,8 +69,10 @@ export class TeamStore {
 
   async addPerson(input: NewUser): Promise<ActionResult> {
     try {
+      const epoch = this.epoch;
       const created = await this.api.users.create(input);
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.users = [...this.users, created];
       });
       return OK;
@@ -67,8 +83,10 @@ export class TeamStore {
 
   async setActive(user: User, isActive: boolean): Promise<ActionResult> {
     try {
+      const epoch = this.epoch;
       const changed = await this.api.users.setActive(user.id, isActive);
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.users = this.users.map((item) => (item.id === changed.id ? changed : item));
       });
       return OK;

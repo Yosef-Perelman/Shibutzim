@@ -5,7 +5,7 @@ from evals.types import EvalCase, Fact
 
 EMPLOYEE = "Noa Katz"
 MANAGER = "Dana Levi"
-SEEDED_RATES = ("42.50", "38.00", "45.00", "40.00", "55.00")
+SEEDED_RATES = ("42.50", "38.00", "45.00", "40.00", "55.00", "48.00", "36.50")
 
 CASES: tuple[EvalCase, ...] = (
     EvalCase(
@@ -121,6 +121,26 @@ CASES: tuple[EvalCase, ...] = (
         question="Who can work next Monday morning?",
         expected_tools=("who_is_available",),
         forbidden_tools=("get_my_hours",),
+        # Seed: the Monday morning shift is index 3 in its week; AVAILABILITY_CYCLE has no answer
+        # at (employee_index + 3) % 4 == 3, i.e. employees 0 and 4 (Noa Katz, Lior Ben-David) in
+        # every seeded week. The tool lists them sorted by name under `no_answer`.
+        facts=(
+            Fact("who_is_available", "no_answer.0"),
+            Fact("who_is_available", "no_answer.1"),
+        ),
+        # No answer counts as available: the manager is told who has not answered yet.
+        must_contain_any=(
+            "no answer",
+            "not answered",
+            "haven't answered",
+            "hasn't answered",
+            "didn't answer",
+            "did not answer",
+            "not responded",
+            "no response",
+            "not submitted",
+            "haven't submitted",
+        ),
     ),
     EvalCase(
         id="schedule_proposal",

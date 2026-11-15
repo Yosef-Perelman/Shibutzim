@@ -1,8 +1,9 @@
 """Availability: an employee's answer (available / preferred / unavailable) per shift of a week
 (product-definition §5.1).
 
-A shift with no answer counts as unavailable. Employees answer until a schedule exists for the
-week; managers can always correct answers. Past weeks are read-only for employees.
+A shift with no answer counts as available; opting out means marking it `unavailable`. Employees
+answer until a schedule exists for the week; managers can always correct answers. Past weeks are
+read-only for employees.
 """
 
 from collections.abc import Mapping
@@ -43,6 +44,19 @@ def list_for_shift(session: Session, current_user: User, shift_id: int) -> list[
     staff = {user.id: user for user in user_repository.list_active_employees(session)}
     found = [ShiftAnswer(staff[a.user_id], a.status) for a in answers if a.user_id in staff]
     return sorted(found, key=lambda answer: (answer.user.name, answer.user.id))
+
+
+def list_without_answer_for_shift(
+    session: Session, current_user: User, shift_id: int
+) -> list[User]:
+    """Active employees with no answer for one shift, by name. They count as available.
+    Managers only."""
+    ensure_manager(current_user)
+    if shift_repository.get_by_id(session, shift_id) is None:
+        raise NotFound(ErrorCode.shift_not_found, f"Shift {shift_id} does not exist.")
+    answered = {a.user_id for a in availability_repository.list_for_shifts(session, [shift_id])}
+    silent = [u for u in user_repository.list_active_employees(session) if u.id not in answered]
+    return sorted(silent, key=lambda user: (user.name, user.id))
 
 
 def list_availabilities(

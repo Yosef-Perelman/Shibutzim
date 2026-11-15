@@ -30,8 +30,8 @@ deterministically, and ask questions in plain language.
 ## Demo
 
 **Live demo: https://shibutzim-a7t72ct4pa-ew.a.run.app** (it may take a few seconds to wake up). Demo accounts share one password,
-`shibutzim-demo`: the manager `dana@shibutzim.example` and the employees `noa@`, `omer@`, `tamar@`, `yonatan@`
-and `lior@shibutzim.example`. The site holds demo data only.
+`shibutzim-demo`: the manager `dana@shibutzim.example` and the employees `noa@`, `omer@`, `tamar@`, `yonatan@`,
+`lior@`, `maya@` and `itai@shibutzim.example`. The site holds demo data only.
 
 The app installs on a phone home screen (PWA).
 
@@ -41,7 +41,7 @@ The app installs on a phone home screen (PWA).
     <td width="50%"><img src="docs/media/team.png" alt="The Team screen: everyone with role, rate and status, and an Add person button"></td>
   </tr>
   <tr>
-    <td><b>Schedule board (manager).</b> A week of shifts with coverage badges; this week has no schedule yet, and Generate fills it with the solver.</td>
+    <td><b>Schedule board (manager).</b> Opens on the current week with next week one click away; a week of shifts with coverage badges, and Generate fills an empty week with the solver.</td>
     <td><b>Team (manager).</b> Add people, deactivate and reactivate them. The signed-in manager has no button on their own row.</td>
   </tr>
   <tr>
@@ -49,7 +49,7 @@ The app installs on a phone home screen (PWA).
     <td width="50%"><img src="docs/media/assistant.png" alt="The assistant answering why an employee's pay is lower than last month, from their own pay data"></td>
   </tr>
   <tr>
-    <td><b>Availability (employee).</b> Each shift is available, preferred or unavailable; no answer counts as unavailable.</td>
+    <td><b>Availability (employee).</b> Each shift is available, preferred or unavailable; no answer counts as available.</td>
     <td><b>Assistant (employee).</b> The answer's numbers come from the pay tool, and the screen says what it looked at.</td>
   </tr>
 </table>

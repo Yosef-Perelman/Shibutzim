@@ -41,9 +41,29 @@ def everyone_available(shifts: list[Shift], staff: list[Employee]) -> list[Avail
     ]
 
 
+def only_these(
+    shifts: list[Shift], staff: list[Employee], *rows: tuple[int, int, AvailabilityStatus]
+) -> list[Availability]:
+    """The given answers, plus an explicit `unavailable` for every other (shift, employee) pair.
+
+    No answer now counts as `available`, so a test that wants someone excluded must say so.
+    """
+    given = answers(*rows)
+    answered = {(a.shift_id, a.employee_id) for a in given}
+    return given + [
+        Availability(shift.id, employee.id, UNAVAILABLE)
+        for shift in shifts
+        for employee in staff
+        if (shift.id, employee.id) not in answered
+    ]
+
+
 # --- independent checkers (deliberately not built on app.scheduler.constraints) ---
 
-WORKABLE_STATUSES = {AVAILABLE, PREFERRED}
+
+def workable(status: AvailabilityStatus | None) -> bool:
+    """No answer counts as `available`: only an explicit `unavailable` rules someone out."""
+    return status is not UNAVAILABLE
 
 
 def status_by_pair(answers) -> dict[tuple[int, int], AvailabilityStatus]:
@@ -69,7 +89,7 @@ def assert_hard_constraints(result, shifts, answers, rules) -> None:
     per_employee: dict[int, list] = {}
     for assignment in result.assignments:
         key = (assignment.shift_id, assignment.employee_id)
-        assert status.get(key) in WORKABLE_STATUSES, f"{key} was not available"
+        assert workable(status.get(key)), f"{key} was marked unavailable"
         assert assignment.employee_id not in per_shift.get(assignment.shift_id, []), f"{key} twice"
         per_shift.setdefault(assignment.shift_id, []).append(assignment.employee_id)
         per_employee.setdefault(assignment.employee_id, []).append(by_id[assignment.shift_id])
@@ -86,7 +106,7 @@ def best_coverage(shifts, staff, answers, rules) -> int:
     """The most positions any rule-abiding schedule can fill, by exhaustive search."""
     status = status_by_pair(answers)
     candidates = {
-        shift.id: [e.id for e in staff if status.get((shift.id, e.id)) in WORKABLE_STATUSES]
+        shift.id: [e.id for e in staff if workable(status.get((shift.id, e.id)))]
         for shift in shifts
     }
     best = 0

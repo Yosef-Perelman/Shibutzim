@@ -228,3 +228,49 @@ def test_chat_returns_a_proposal_for_a_manager_and_saves_nothing(
     assert body["proposal"]["assignments"][0]["people"] == ["Eli Employee"]
     assert body["proposal"]["unavailable"] == []
     assert session.query(Schedule).count() == 0
+
+
+# --- the conversation belongs to the client (plan 007, section C) ---
+
+
+def test_chat_two_users_in_turn_the_model_sees_only_the_history_each_request_carried(
+    employee_client: TestClient, other_employee_client: TestClient, use_llm
+):
+    llm = use_llm(FakeLLM([say("first answer"), say("second answer")]))
+
+    employee_client.post(URL, json=ask("Eli's private question about my pay"))
+    other_employee_client.post(URL, json=ask("Olive's fresh question"))
+
+    first, second = llm.chat_calls
+    assert [(m.role, m.text) for m in first.messages] == [
+        ("user", "Eli's private question about my pay")
+    ]
+    assert [(m.role, m.text) for m in second.messages] == [("user", "Olive's fresh question")]
+    assert "private question" not in second.system
+    assert "first answer" not in second.system
+
+
+def test_chat_does_not_remember_the_previous_request_of_the_same_user(
+    employee_client: TestClient, use_llm
+):
+    llm = use_llm(FakeLLM([say("first answer"), say("second answer")]))
+
+    employee_client.post(URL, json=ask("one"))
+    employee_client.post(URL, json=ask("two"))
+
+    assert [(m.role, m.text) for m in llm.chat_calls[1].messages] == [("user", "two")]
+
+
+@pytest.mark.parametrize("client_name", ["employee_client", "manager_client"])
+def test_no_route_returns_a_conversation_get_chat_is_405(
+    client_name: str, request: pytest.FixtureRequest
+):
+    signed_in: TestClient = request.getfixturevalue(client_name)
+
+    response = signed_in.get(URL)
+
+    assert response.status_code == 405
+
+
+def test_get_chat_without_a_token_is_not_a_way_to_read_history(client: TestClient):
+    assert client.get(URL).status_code in (401, 405)

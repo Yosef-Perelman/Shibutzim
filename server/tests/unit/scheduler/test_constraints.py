@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 
 from app.scheduler import Constraint, Exclusion, SchedulingRules
-from app.scheduler.constraints import conflict, overlaps, rest_gap, violations
+from app.scheduler.constraints import conflict, is_workable, overlaps, rest_gap, violations
 from tests.unit.scheduler.helpers import AVAILABLE, PREFERRED, UNAVAILABLE, make_shift
 
 RULES = SchedulingRules(min_rest_hours=8, max_shifts_per_week=5)
@@ -85,11 +85,37 @@ def test_a_preferred_answer_is_not_a_violation() -> None:
     assert violations(EMPLOYEE, make_shift(1), [], PREFERRED, RULES) == []
 
 
-@pytest.mark.parametrize("status", [UNAVAILABLE, None], ids=["unavailable", "no_answer"])
-def test_unavailable_or_no_answer_violates_availability(status) -> None:
-    result = violations(EMPLOYEE, make_shift(1), [], status, RULES)
+def test_unavailable_violates_availability() -> None:
+    result = violations(EMPLOYEE, make_shift(1), [], UNAVAILABLE, RULES)
 
     assert result == [Exclusion(EMPLOYEE, Constraint.availability)]
+
+
+def test_no_answer_counts_as_available() -> None:
+    assert violations(EMPLOYEE, make_shift(1), [], None, RULES) == []
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [(AVAILABLE, True), (PREFERRED, True), (None, True), (UNAVAILABLE, False)],
+    ids=["available", "preferred", "no_answer", "unavailable"],
+)
+def test_is_workable_only_rules_out_an_explicit_unavailable(status, expected) -> None:
+    assert is_workable(status) is expected
+
+
+def test_no_answer_still_violates_overlap_and_is_named() -> None:
+    other = make_shift(2, hour=10, hours=8)
+
+    result = violations(EMPLOYEE, make_shift(1, hour=7, hours=8), [other], None, RULES)
+
+    assert result == [Exclusion(EMPLOYEE, Constraint.overlap, shift_id=2)]
+
+
+def test_a_blocked_shift_violates_blocked_even_when_there_is_no_answer() -> None:
+    result = violations(EMPLOYEE, make_shift(1), [], None, RULES, blocked=True)
+
+    assert result == [Exclusion(EMPLOYEE, Constraint.blocked)]
 
 
 def test_an_overlapping_assigned_shift_violates_overlap_and_is_named() -> None:

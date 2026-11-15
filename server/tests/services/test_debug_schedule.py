@@ -22,6 +22,7 @@ from tests.factories import (
 )
 
 AVAILABLE = AvailabilityStatus.available
+UNAVAILABLE = AvailabilityStatus.unavailable
 
 
 def person(session: Session, name: str) -> User:
@@ -29,7 +30,10 @@ def person(session: Session, name: str) -> User:
 
 
 def unfillable_week(session: Session) -> dict[str, User]:
-    """Monday night needs Dana alone; Tuesday 07:00 needs 3 but Dana's rest blocks her."""
+    """Monday night needs Dana alone; Tuesday 07:00 needs 3 but Dana's rest blocks her.
+
+    No answer counts as available, so everyone who cannot work is marked unavailable explicitly.
+    """
     night = make_shift(
         session,
         make_shift_template(
@@ -44,8 +48,11 @@ def unfillable_week(session: Session) -> dict[str, User]:
     )
     people = {name: person(session, name) for name in ("Dana", "Noa", "Omer", "Tamar")}
     make_availability(session, night, people["Dana"])
+    for name in ("Noa", "Omer", "Tamar"):
+        make_availability(session, night, people[name], UNAVAILABLE)
     for name in ("Dana", "Noa", "Omer"):
         make_availability(session, morning, people[name])
+    make_availability(session, morning, people["Tamar"], UNAVAILABLE)
     return people
 
 
@@ -76,10 +83,26 @@ def test_the_report_names_the_conflicting_shift_behind_each_exclusion(
     assert "Dana: minimum rest with Monday 23:00" in text
 
 
-def test_the_report_lists_who_did_not_answer_available(session: Session, manager: User) -> None:
+def test_the_report_lists_who_marked_the_shift_unavailable(session: Session, manager: User) -> None:
     unfillable_week(session)
 
-    assert "Did not answer available: Tamar" in report(session, manager)
+    assert "Marked unavailable: Tamar" in report(session, manager)
+
+
+def test_the_report_never_says_did_not_answer_available(session: Session, manager: User) -> None:
+    unfillable_week(session)
+
+    assert "Did not answer available" not in report(session, manager)
+
+
+def test_the_report_of_a_week_nobody_answered_for_is_fully_staffed(
+    session: Session, manager: User, employee: User
+) -> None:
+    make_shift(session, make_shift_template(session, required_staff=1))  # no answers at all
+
+    text = report(session, manager)
+
+    assert "Every position is filled." in text
 
 
 def test_the_report_says_what_relaxing_each_rule_would_change(
@@ -137,10 +160,10 @@ def test_a_week_without_shifts_is_reported_as_an_error(session: Session, manager
     assert raised.value.code == ErrorCode.no_shifts_for_week
 
 
-def test_the_report_lists_an_unanswered_employee_only_as_unanswered(
+def test_the_report_lists_an_unavailable_employee_only_as_unavailable(
     session: Session, manager: User
 ) -> None:
-    """Tamar works Monday night and never answered for Tuesday: her rest is not the cause."""
+    """Tamar works Monday night and marked Tuesday unavailable: her rest is not the cause."""
     night = make_shift(
         session,
         make_shift_template(
@@ -155,6 +178,9 @@ def test_the_report_lists_an_unanswered_employee_only_as_unanswered(
     )
     tamar, dana, noa = person(session, "Tamar"), person(session, "Dana"), person(session, "Noa")
     make_availability(session, night, tamar)
+    make_availability(session, night, dana, UNAVAILABLE)
+    make_availability(session, night, noa, UNAVAILABLE)
+    make_availability(session, morning, tamar, UNAVAILABLE)
     make_availability(session, morning, dana)
     make_availability(session, morning, noa)
 
@@ -163,4 +189,5 @@ def test_the_report_lists_an_unanswered_employee_only_as_unanswered(
     assert "Tuesday 07:00 needs 3, only 2 available" in text
     assert "excluded by" not in text
     assert "Tamar: minimum rest" not in text
-    assert "Did not answer available: Tamar" in text
+    assert "Marked unavailable: Tamar" in text
+    assert "Did not answer available" not in text

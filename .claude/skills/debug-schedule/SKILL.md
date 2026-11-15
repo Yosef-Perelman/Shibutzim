@@ -36,7 +36,7 @@ cd server && uv run python scripts/debug_schedule.py --week <week_start> --min-r
 | `Positions filled: X of Y` | coverage of the week; `search budget used up` means the best result found, not a proof |
 | `Unfilled slots` | one sentence per short shift, e.g. "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest" |
 | indented lines under a slot | per employee, the hard constraint and the shift it clashes with (overlap, minimum rest, max shifts per week) |
-| `Did not answer available` | people who are not candidates at all: no answer counts as unavailable |
+| `Marked unavailable` | people who are not candidates at all: they marked the shift `unavailable` (no answer counts as available) |
 | `What if` | each rule relaxed on its own with the new coverage: options, not fixes |
 | `Trace:` | how much the search did; a very large elimination count by one constraint points at the bottleneck |
 
@@ -46,7 +46,7 @@ Lead with the verdict (how many positions are open and on which shifts), then fo
 
 1. **Why**, in the solver's words: who could work it and what stops each of them. Name the people and the shifts.
 2. **What the manager could do**, most reasonable first:
-   - ask the people under "Did not answer available" to answer (availability is the cheapest lever);
+   - ask the people under "Marked unavailable" whether they can work it after all (availability is the cheapest lever);
    - move a clashing assignment away, or accept a manual edit: overlap and minimum rest are rejected by the
      API, other rules only warn;
    - lower `required_staff` on the template (new shifts only) or split the shift;

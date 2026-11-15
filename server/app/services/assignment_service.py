@@ -201,7 +201,7 @@ def check_placement(
     warnings = []
     if any(item.constraint is Constraint.availability for item in found):
         warnings.append(
-            EditWarning(AVAILABILITY_IGNORED, f"{user.name} did not mark {when} as available.")
+            EditWarning(AVAILABILITY_IGNORED, f"{user.name} marked {when} unavailable.")
         )
     if any(item.constraint is Constraint.max_shifts for item in found):
         warnings.append(

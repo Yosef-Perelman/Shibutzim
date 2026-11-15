@@ -3,7 +3,7 @@
 from collections import Counter
 
 from app.assistant.tools import registry
-from evals.cases import CASES
+from evals.cases import CASES, SEEDED_RATES
 
 
 def test_there_are_fifteen_cases_with_unique_ids():
@@ -43,3 +43,8 @@ def test_every_case_has_a_question_and_something_to_check():
             or case.must_not_contain
             or case.max_tool_calls == 0
         ), case.id
+
+
+def test_the_seeded_rates_list_every_employee_hourly_rate_of_the_demo_team():
+    assert set(SEEDED_RATES) == {"42.50", "38.00", "45.00", "40.00", "55.00", "48.00", "36.50"}
+    assert len(SEEDED_RATES) == 7

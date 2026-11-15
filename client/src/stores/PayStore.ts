@@ -36,15 +36,24 @@ export class PayStore {
   private teamRequested = false;
   private payRequestId = 0;
   private teamRequestId = 0;
+  private readonly now: (() => Date) | undefined;
 
   constructor(options: PayStoreOptions) {
     this.api = options.api;
+    this.now = options.now;
     this.monthStart = currentMonthStart(options.now?.());
     makeAutoObservable<
       PayStore,
-      'api' | 'payRequested' | 'payUserId' | 'teamRequested' | 'payRequestId' | 'teamRequestId'
+      | 'api'
+      | 'now'
+      | 'payRequested'
+      | 'payUserId'
+      | 'teamRequested'
+      | 'payRequestId'
+      | 'teamRequestId'
     >(this, {
       api: false,
+      now: false,
       payRequested: false,
       payUserId: false,
       teamRequested: false,
@@ -59,6 +68,22 @@ export class PayStore {
 
   get hasDays(): boolean {
     return (this.pay?.days.length ?? 0) > 0;
+  }
+
+  /** Back to the initial state; an answer still on its way is no longer wanted. */
+  reset(): void {
+    this.payRequestId += 1;
+    this.teamRequestId += 1;
+    this.payRequested = false;
+    this.payUserId = undefined;
+    this.teamRequested = false;
+    this.monthStart = currentMonthStart(this.now?.());
+    this.pay = null;
+    this.payStatus = 'idle';
+    this.payError = null;
+    this.team = null;
+    this.teamStatus = 'idle';
+    this.teamError = null;
   }
 
   /** Own pay (no `userId`) or, for a manager, one employee's. */

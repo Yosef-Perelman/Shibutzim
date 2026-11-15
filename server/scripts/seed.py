@@ -41,6 +41,8 @@ EMPLOYEES = [
     ("Tamar Mizrahi", Decimal("45.00")),
     ("Yonatan Peretz", Decimal("40.00")),
     ("Lior Ben-David", Decimal("55.00")),
+    ("Maya Cohen", Decimal("48.00")),
+    ("Itai Shapira", Decimal("36.50")),
 ]
 
 # (name, weekday 0 = Sunday, start, end, required staff); an end at or before start ends next day.
@@ -81,7 +83,7 @@ AVAILABILITY_CYCLE = [
     AvailabilityStatus.available,
     AvailabilityStatus.preferred,
     AvailabilityStatus.unavailable,
-    None,  # no answer, which counts as unavailable
+    None,  # no answer, which counts as available
 ]
 
 

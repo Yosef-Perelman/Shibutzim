@@ -152,7 +152,7 @@ All ids are integers (serial). All timestamps are `timestamptz` stored in UTC. M
 | `users` | `id`, `email` (unique), `password_hash`, `name`, `role` (`manager` \| `employee`), `hourly_rate`, `is_active` | the base hourly rate lives here |
 | `shift_templates` | `id`, `name`, `weekday` (0 = Sunday), `start_time`, `end_time`, `required_staff`, `is_active` | recurring definition; `end_time` ≤ `start_time` means it ends the next day |
 | `shifts` | `id`, `template_id`, `week_start`, `starts_at`, `ends_at`, `required_staff` | concrete slot for one week; `required_staff` and times are **snapshotted** from the template so later template edits don't rewrite history; unique (`template_id`, `week_start`) |
-| `availabilities` | `id`, `shift_id`, `user_id`, `status` (`available` \| `preferred` \| `unavailable`) | unique (`shift_id`, `user_id`); a missing row means `unavailable` |
+| `availabilities` | `id`, `shift_id`, `user_id`, `status` (`available` \| `preferred` \| `unavailable`) | unique (`shift_id`, `user_id`); a missing row counts as `available` (the scheduler's rule; the service passes only the rows that exist) |
 | `schedules` | `id`, `week_start` (unique), `status` (`draft` \| `published`), `published_at` | one schedule per week |
 | `assignments` | `id`, `schedule_id`, `shift_id`, `user_id` | unique (`schedule_id`, `shift_id`, `user_id`) |
 | `time_entries` | `id`, `user_id`, `clock_in`, `clock_out` (nullable while open), `source` (`clock` \| `manual`), `created_by`, `note` | several per day = split shift; may cross midnight; a partial unique index allows one open entry per user |
@@ -181,7 +181,8 @@ Not in the database in v1:
 1. Shifts for the next week are generated from active templates (`week_start` + weekday + times, computed in
    `Asia/Jerusalem`, stored in UTC).
 2. Employees submit availability per shift, until a schedule exists for the week (managers can always correct it).
-3. The manager clicks **Generate**: the service loads shifts, employees and availabilities, builds rule objects, and
+3. The manager clicks **Generate**: the service loads shifts, employees and availabilities (only the rows that exist;
+   the scheduler treats no answer as `available`, and only `unavailable` rules a person out), builds rule objects, and
    calls `scheduler.solve(shifts, employees, availabilities, rules) -> ScheduleResult`. The result contains the
    assignments found, a score, and a list of unfilled slots with reasons. `schedule_service.propose_schedule` runs
    the same path without saving (the assistant's dry run, and `debug-schedule` with trace mode on).
@@ -301,7 +302,7 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
 - **MobX**: one store per domain, created once by a `RootStore` and shared through a React context –
   `AuthStore` (token, user, login, logout, demo-user switch), `ScheduleStore` (a week's schedule, the manager's
   board and its actions), `AvailabilityStore`, `TimeStore` (clock in / out), `PayStore`, `TeamStore` (the people of
-  the team: add, deactivate, reactivate), `AssistantStore` (plan 004). Stores own server state and async actions; components observe and never call `fetch`.
+  the team: add, deactivate, reactivate), `AssistantStore` (plan 004). `AuthStore` calls `onSessionCleared` whenever the session ends or changes user, and `RootStore` resets every per-user store from it. Stores own server state and async actions; components observe and never call `fetch`.
 - **API client** (`client/src/api/`): one `ApiClient` is the only caller of `fetch`; one module per resource, DTOs
   in `api/types/` mirroring the server schemas (snake_case fields, money as strings). Errors become a typed
   `ApiError { status, code, message, details }`.
@@ -327,7 +328,10 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
 - **PWA**: a web manifest, generated icons and a service worker that precaches the app shell (`generateSW`, auto
   update). `/api` is excluded from the navigation fallback and has no runtime cache, so signed-in data is never
   served from a cache. Unit tests build without the plugin.
-- **Assistant UI**: a screen at `/me/assistant` for both roles. `AssistantStore` holds the conversation and sends
+- **Schedule board**: `ScheduleBoard` reads `week` (a Sunday, `YYYY-MM-DD`) from the URL and otherwise opens on the
+  current week (`currentWeekStart()`); "Next week" and "This week" move within the week navigator.
+- **Assistant UI**: a screen at `/me/assistant` for both roles. `AssistantStore` holds the conversation (memory only: no
+  `localStorage`, and `reset()` on every sign-out, Demo-user switch and session expiry, so it is per user) and sends
   it within the server's limits; answers show handbook citations and what was looked at; a proposal renders
   Confirm / Cancel, and Confirm calls the normal generate endpoint through the store.
 
