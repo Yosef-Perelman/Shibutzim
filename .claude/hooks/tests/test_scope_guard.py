@@ -84,6 +84,25 @@ class MainSessionShellTests(ScopeGuardTestCase):
         self.assertBlocked(self.bash("cd server && echo x > app/y.py"))
         self.assertAllowed(self.bash("cd docs && echo x > y.md"))
 
+    def test_shell_variable_set_earlier_in_the_command_is_expanded(self):
+        root = str(self.project)
+        self.assertBlocked(self.bash(f'S={root}/server && cat > "$S/app/x.py" <<\'EOF\'\nx\nEOF'))
+        self.assertBlocked(self.bash(f"A={root}/server/app; sed -i '' 's/a/b/' ${{A}}/x.py"))
+        self.assertAllowed(self.bash(f'D={root}/docs && echo x > "$D/x.md"'))
+
+    def test_inline_python_that_gets_its_target_as_an_argument_is_blocked(self):
+        root = str(self.project)
+        script = f"python3 - {root}/server/app <<'EOF'\nimport sys\nopen(sys.argv[1] + '/x.py', 'w').write('x')\nEOF"
+        self.assertBlocked(self.bash(script))
+
+    def test_inline_python_with_a_relative_path_uses_the_working_directory(self):
+        script = "python3 - <<'EOF'\nfrom pathlib import Path\nPath('tests/x.py').write_text('x')\nEOF"
+        self.assertBlocked(self.bash(script, cwd=str(self.project / "server")))
+
+    def test_bash_c_and_bash_heredoc_are_looked_into(self):
+        self.assertBlocked(self.bash("bash -c 'echo x > server/app/x.py'"))
+        self.assertBlocked(self.bash("bash <<'EOF'\necho x > server/app/x.py\nEOF"))
+
     def test_relative_path_from_a_source_cwd_is_resolved(self):
         self.assertBlocked(self.bash("echo x > app/y.py", cwd=str(self.project / "server")))
 

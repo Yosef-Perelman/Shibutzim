@@ -33,7 +33,7 @@ import shlex
 import sys
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MARKER = Path(".claude", "main-edits.allow")
@@ -43,6 +43,7 @@ CLIENT_TEST_FILE = re.compile(r"^client/.+\.(test|spec)\.tsx?$")
 
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+VARIABLE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 REDIRECT = re.compile(r"^(?:\d*|&)(>>|>\||>)(.*)$")
 SUBSTITUTION_SCRIPT = re.compile(r"^[sy]([/|#,!]).*\1.*\1[gpiIe0-9]*$")
 WRAPPERS = {"command", "time", "nohup", "env", "exec", "sudo", "nice", "builtin"}
@@ -355,9 +356,27 @@ def inline_script(name: str, args: List[str], bodies: List[str]) -> Optional[str
     return None
 
 
-def segment_targets(segment: Segment, cwd: Path, depth: int) -> Tuple[List[Path], Path]:
+def expand(token: str, variables: Dict[str, str]) -> str:
+    """Replace `$NAME` and `${NAME}` that an earlier `NAME=value` in the same command defined."""
+
+    def replace(match: "re.Match[str]") -> str:
+        name = match.group(1) or match.group(2)
+        return variables.get(name, match.group(0))
+
+    return VARIABLE.sub(replace, token)
+
+
+def segment_targets(
+    segment: Segment, cwd: Path, depth: int, variables: Dict[str, str]
+) -> Tuple[List[Path], Path]:
     """Write targets of one simple command; returns them with the (possibly changed) working directory."""
-    tokens = tokenize(segment.text)
+    tokens = [expand(token, variables) for token in tokenize(segment.text)]
+    for token in tokens:
+        if ENV_ASSIGNMENT.match(token):
+            name, _, value = token.partition("=")
+            variables[name] = value
+        else:
+            break
     targets: List[str] = []
     args: List[str] = []
     skip = False
@@ -400,12 +419,13 @@ def segment_targets(segment: Segment, cwd: Path, depth: int) -> Tuple[List[Path]
             elif name in SHELLS and depth < 3:
                 script = option_value(rest, ("-c",))
                 for text in ([script] if script else []) + segment.bodies:
-                    resolved.extend(write_targets(text, cwd, depth + 1))
+                    resolved.extend(write_targets(text, cwd, depth + 1, dict(variables)))
             else:
                 targets.extend(command_targets(name, rest))
                 script = inline_script(name, rest, segment.bodies)
                 if script is not None and INLINE_WRITE.search(script):
                     targets.extend(candidate_paths(script))
+                    targets.extend(arg for arg in rest if "/" in arg)  # e.g. `python3 - "$DIR"` + sys.argv
     for token in targets:
         path = resolve(token, cwd)
         if path is not None:
@@ -413,11 +433,14 @@ def segment_targets(segment: Segment, cwd: Path, depth: int) -> Tuple[List[Path]
     return resolved, new_cwd
 
 
-def write_targets(command: str, cwd: Path, depth: int = 0) -> List[Path]:
+def write_targets(
+    command: str, cwd: Path, depth: int = 0, variables: Optional[Dict[str, str]] = None
+) -> List[Path]:
     """Absolute paths a Bash command appears to write (best effort, regex and shlex based)."""
     found: List[Path] = []
+    variables = {"HOME": os.path.expanduser("~")} if variables is None else variables
     for segment in split_segments(command):
-        paths, cwd = segment_targets(segment, cwd, depth)
+        paths, cwd = segment_targets(segment, cwd, depth, variables)
         found.extend(paths)
     return found
 
