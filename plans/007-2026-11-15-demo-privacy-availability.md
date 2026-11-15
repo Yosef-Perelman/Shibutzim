@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | done |
 | **Date** | 2026-11-15 |
 | **Related docs** | [product-definition](../docs/product-definition.md) §5.1, §5.2, §5.5, §6.2; [glossary](../docs/glossary.md); [architecture](../docs/architecture.md) §5, §6.2, §6.4, §9; [testing-rules](../docs/rules/testing-rules.md) (scheduler matrix); [deployment](../docs/deployment.md) §10 |
 | **Roadmap** | plan 007 of 007 |
@@ -266,4 +266,44 @@ Yosef approved the plan with "implement plan 007" (2026-11-15): all eight open q
 
 ## What changed vs. plan
 
-*(filled in when the plan is closed)*
+Closed 2026-11-15. All four sections (A seed, B board, C privacy, D availability rule) are implemented as planned;
+the open questions were answered as suggested. Deviations:
+
+- **Commits pair tests with code.** The pre-commit hook rejects a red suite, so each "qa: failing tests" step and
+  its implementation step are one commit (steps 1+2, 3+4, 6+7, 10+11, 12+13) instead of a separate `test:` commit.
+  The docs steps 5, 8 and 9 are one `docs:` commit (the same files carry edits from all three).
+- **Step 2:** `README.md` and `client/.env.example` were outside `backend`'s scope; `main` edited them.
+  `docker-compose.yml` holds no email list and `architecture.md` §5 says "a handful", so neither changed.
+  A hard-coded `5 *` in `test_seed.py` had to be fixed by `qa` (step 1 follow-up).
+- **Step 7 (frontend):** besides `reset()` on every per-user store, epoch / request-id guards were added to
+  `ScheduleStore`, `TeamStore`, `TimeStore` and `AvailabilityStore` so a late reply cannot repopulate a store after
+  a reset. `AssistantScreen.tsx` needed no change ("New conversation" already existed and cleared via `reset()`).
+- **Step 11 (backend):** one small addition: `availability_service.list_without_answer_for_shift` feeds the new
+  `no_answer` group of `who_is_available`, so the tool does not query the repository itself.
+- **Seed assumption was wrong:** the plan said the seeded week could never be fully staffed with five employees;
+  the two new tests (`test_no_seeded_assignment_sits_on_an_unavailable_row`,
+  `test_the_seeded_current_week_is_fully_staffed`) already passed before the rule change. They stay as guards.
+- **`AvailabilityControl.tsx`** fallback option was `unavailable`; it is now `available` (consistent default).
+- **Eval run:** the first attempt hit a provider 500 (no case ran); one retry of the same four cases
+  (`who_is_available`, `refuse_other_pay`, `refuse_injection`, `schedule_proposal`) passed 4/4 with 6 model calls.
+  `who_is_available` expects `Lior Ben-David` and `Noa Katz` (the `no_answer` group of Monday morning, derived by
+  hand from the seed cycle).
+
+Validation results:
+
+- `cd server && uv run pytest -q` → 1117 passed; the scheduler matrix lists `test_no_answer_counts_as_available`,
+  `test_unavailable_violates_availability` and the solve/trace no-answer cases next to the testing-rules matrix.
+- `cd client && npm run lint && npm run typecheck && npm test` → clean, 23 files, 266 tests passed.
+- Seed on the local database: first run created Maya, Itai, 16 shifts, 108 availabilities and 62 time entries;
+  the second run created nothing. `psql`: 7 employees + 1 manager; no assignment sits on an `unavailable` row.
+  The local database's already-published current week (from before the plan) still has five short shifts because
+  the seed never touches an existing published schedule; on a fresh database the week is fully staffed (test).
+- Solver size (7 employees, 16 shifts, 26 positions): 117 steps for the current week and for next week, both
+  `complete` with `unfilled` empty. `max_steps` unchanged.
+- Docs grep `counts as unavailable` over the docs, README, handbook, client source and `.claude` → no matches.
+- `archive_conversation.py --audit`, this plan's session (`ff595afa`): `backend=2, frontend=3, qa=7`, 0 shell
+  writes into source.
+- **Not done:** the by-eye checks in the dev client (board, Demo-user switch by hand) were covered by tests only.
+- **Manual, Yosef only, after merge and deploy:** `gh variable set DEMO_USERS --body "<seven + manager>"` and a
+  redeploy; `uv run python scripts/seed.py` with `DATABASE_URL` pointing at Supabase; `uv run python
+  scripts/ingest_handbook.py` locally and against Supabase for the new handbook text.

@@ -14,9 +14,9 @@ Workflow details: [AGENTS.md](../AGENTS.md#plan-to-plan-workflow) and
 | **004** | done | [004-2026-11-11-assistant-handbook-evals.md](004-2026-11-11-assistant-handbook-evals.md) | Assistant: agent loop, tools, confirmation flow, tool-call logging, handbook RAG, evals |
 | **005** | done | [005-2026-11-12-deploy-mcp-pwa.md](005-2026-11-12-deploy-mcp-pwa.md) | Dockerfile + GitHub Actions (lint + tests on PR, deploy) → **GCP Cloud Run** (DB stays managed: Supabase / Neon); **MCP server** (official Python SDK / FastMCP, exposing the same services – "same core, two interfaces: REST and MCP"); PWA |
 | **006** | done | [006-2026-11-15-agents-hooks-review.md](006-2026-11-15-agents-hooks-review.md) | Make the agents and hooks real: a Bash-aware scope guard per agent, post-Bash ruff/tests, a committed `.githooks/pre-commit`, a subagent audit in the archive hook, `model:` per agent, and an owner per step in the plan template |
-| **007** | todo | [007-2026-11-15-demo-privacy-availability.md](007-2026-11-15-demo-privacy-availability.md) | Two more demo employees in the seed; the Schedule board opens on the current week (`?week=` links); assistant conversations are per user and cleared on sign-out, Demo-user switch, expiry and New conversation; no answer counts as `available` (docs, scheduler and explanations, `who_is_available`, availability form, seed, evals) |
+| **007** | done | [007-2026-11-15-demo-privacy-availability.md](007-2026-11-15-demo-privacy-availability.md) | Two more demo employees in the seed; the Schedule board opens on the current week (`?week=` links); assistant conversations are per user and cleared on sign-out, Demo-user switch, expiry and New conversation; no answer counts as `available` (docs, scheduler and explanations, `who_is_available`, availability form, seed, evals) |
 
-Plans 000–006 are done; 007 is next.
+Plans 000–007 are done; no further plan is on the roadmap yet.
 
 ## Skills built along the way
 
