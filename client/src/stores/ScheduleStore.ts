@@ -86,15 +86,34 @@ export class ScheduleStore {
   private readonly currentUserId: () => number | null;
   private includeShifts = false;
   private requestId = 0;
+  private employeesRequestId = 0;
+  // Bumped by reset(): a write that finishes after it must not repopulate the store.
+  private epoch = 0;
+  private readonly now: (() => Date) | undefined;
 
   constructor(options: ScheduleStoreOptions) {
     this.api = options.api;
     this.currentUserId = options.currentUserId;
+    this.now = options.now;
     this.weekStart = currentWeekStart(options.now?.());
-    makeAutoObservable<ScheduleStore, 'api' | 'currentUserId' | 'includeShifts' | 'requestId'>(
-      this,
-      { api: false, currentUserId: false, includeShifts: false, requestId: false },
-    );
+    makeAutoObservable<
+      ScheduleStore,
+      | 'api'
+      | 'currentUserId'
+      | 'includeShifts'
+      | 'requestId'
+      | 'employeesRequestId'
+      | 'epoch'
+      | 'now'
+    >(this, {
+      api: false,
+      currentUserId: false,
+      includeShifts: false,
+      requestId: false,
+      employeesRequestId: false,
+      epoch: false,
+      now: false,
+    });
   }
 
   get hasSchedule(): boolean {
@@ -172,14 +191,34 @@ export class ScheduleStore {
     return this.load(shiftWeek(this.weekStart, offset), this.includeShifts);
   }
 
+  /** Back to the initial state: no week, no employees, and no answer still on its way lands. */
+  reset(): void {
+    this.requestId += 1;
+    this.employeesRequestId += 1;
+    this.epoch += 1;
+    this.weekStart = currentWeekStart(this.now?.());
+    this.schedule = null;
+    this.shifts = [];
+    this.status = 'idle';
+    this.error = null;
+    this.lastRun = null;
+    this.employees = [];
+    this.employeesError = null;
+    this.isWorking = false;
+    this.includeShifts = false;
+  }
+
   async loadEmployees(): Promise<void> {
+    const requestId = ++this.employeesRequestId;
     try {
       const employees = await this.api.users.list({ role: 'employee', is_active: true });
+      if (requestId !== this.employeesRequestId) return;
       runInAction(() => {
         this.employees = employees;
         this.employeesError = null;
       });
     } catch (error) {
+      if (requestId !== this.employeesRequestId) return;
       const result = failure(error);
       runInAction(() => {
         this.employeesError = result.ok ? null : result.message;
@@ -199,8 +238,10 @@ export class ScheduleStore {
   /** Runs the solver and keeps its draft and report; replaces the current draft. */
   generate(): Promise<ActionResult> {
     return this.work(async () => {
+      const epoch = this.epoch;
       const run = await this.api.schedules.generate(this.weekStart);
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.schedule = run.schedule;
         this.lastRun = run;
       });
@@ -210,8 +251,10 @@ export class ScheduleStore {
 
   publish(): Promise<ActionResult> {
     return this.work(async () => {
+      const epoch = this.epoch;
       const schedule = await this.api.schedules.publish(this.weekStart);
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.schedule = schedule;
       });
       return OK;
@@ -275,8 +318,10 @@ export class ScheduleStore {
 
   /** Re-reads the week after a change without the loading state, so the board does not flash. */
   private async refresh(): Promise<void> {
+    const epoch = this.epoch;
     const { schedule, shifts } = await this.fetchWeek(this.weekStart, this.includeShifts);
     runInAction(() => {
+      if (epoch !== this.epoch) return;
       this.schedule = schedule;
       this.shifts = shifts;
     });
@@ -304,6 +349,7 @@ export class ScheduleStore {
   }
 
   private async work(task: () => Promise<ActionResult>): Promise<ActionResult> {
+    const epoch = this.epoch;
     this.isWorking = true;
     try {
       return await task();
@@ -311,7 +357,7 @@ export class ScheduleStore {
       return failure(error);
     } finally {
       runInAction(() => {
-        this.isWorking = false;
+        if (epoch === this.epoch) this.isWorking = false;
       });
     }
   }

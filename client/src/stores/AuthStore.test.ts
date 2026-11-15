@@ -15,8 +15,9 @@ const manager = makeUser({
 function setup(options: { storedToken?: string; demoUsers?: string[] } = {}) {
   const api = { auth: { login: vi.fn(), me: vi.fn() } };
   const storage = createMemoryTokenStorage(options.storedToken ?? null);
-  const store = new AuthStore({ api, storage, demoUsers: options.demoUsers });
-  return { api, storage, store };
+  const onSessionCleared = vi.fn();
+  const store = new AuthStore({ api, storage, demoUsers: options.demoUsers, onSessionCleared });
+  return { api, storage, store, onSessionCleared };
 }
 
 describe('AuthStore login', () => {
@@ -152,5 +153,108 @@ describe('AuthStore demo-user switch', () => {
     api.auth.login.mockResolvedValue(makeToken());
     await store.login('noa@shibutzim.example', 'pw');
     expect(await store.switchTo('dana@shibutzim.example')).toBe(false);
+  });
+});
+
+describe('AuthStore onSessionCleared', () => {
+  it('is not called by constructing the store or by a restore with no stored token', async () => {
+    const { store, onSessionCleared } = setup();
+    await store.restore();
+    expect(onSessionCleared).not.toHaveBeenCalled();
+  });
+
+  it('is called when someone logs in, so the previous person leaves nothing behind', async () => {
+    const { api, store, onSessionCleared } = setup();
+    api.auth.login.mockResolvedValue(makeToken());
+
+    await store.login('noa@shibutzim.example', 'pw');
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is called even when the login fails, because the old session is dropped first', async () => {
+    const { api, store, onSessionCleared } = setup();
+    api.auth.login.mockRejectedValue(new ApiError(401, 'invalid_credentials', 'Wrong.'));
+
+    await store.login('noa@shibutzim.example', 'bad');
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is called before the new user is set, never after', async () => {
+    const { api, store, onSessionCleared } = setup();
+    api.auth.login.mockResolvedValue(makeToken());
+    onSessionCleared.mockImplementation(() => {
+      expect(store.user).toBeNull();
+      expect(store.token).toBeNull();
+    });
+
+    await store.login('noa@shibutzim.example', 'pw');
+
+    expect(onSessionCleared).toHaveBeenCalled();
+  });
+
+  it('is called when switching to another demo user', async () => {
+    const { api, store, onSessionCleared } = setup({
+      demoUsers: ['dana@shibutzim.example', 'noa@shibutzim.example'],
+    });
+    api.auth.login.mockResolvedValueOnce(makeToken(manager, 't1'));
+    await store.login('dana@shibutzim.example', 'shared-pw');
+    onSessionCleared.mockClear();
+    api.auth.login.mockResolvedValueOnce(makeToken(makeUser(), 't2'));
+
+    await store.switchTo('noa@shibutzim.example');
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is called on logout', async () => {
+    const { api, store, onSessionCleared } = setup();
+    api.auth.login.mockResolvedValue(makeToken());
+    await store.login('noa@shibutzim.example', 'pw');
+    onSessionCleared.mockClear();
+
+    store.logout();
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is called when the session expires', async () => {
+    const { api, store, onSessionCleared } = setup();
+    api.auth.login.mockResolvedValue(makeToken());
+    await store.login('noa@shibutzim.example', 'pw');
+    onSessionCleared.mockClear();
+
+    store.expireSession();
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not called by an expiry signal when nobody is logged in', () => {
+    const { store, onSessionCleared } = setup();
+
+    store.expireSession();
+
+    expect(onSessionCleared).not.toHaveBeenCalled();
+  });
+
+  it('is called when a stored token is rejected on restore', async () => {
+    const { api, store, onSessionCleared } = setup({ storedToken: 'old' });
+    api.auth.me.mockRejectedValue(new ApiError(401, 'token_expired', 'Your session expired.'));
+
+    await store.restore();
+
+    expect(onSessionCleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('is optional: the store works without it', async () => {
+    const api = { auth: { login: vi.fn(), me: vi.fn() } };
+    api.auth.login.mockResolvedValue(makeToken());
+    const store = new AuthStore({ api, storage: createMemoryTokenStorage() });
+
+    await store.login('noa@shibutzim.example', 'pw');
+    store.logout();
+
+    expect(store.isAuthenticated).toBe(false);
   });
 });

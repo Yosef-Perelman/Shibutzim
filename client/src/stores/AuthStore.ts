@@ -11,6 +11,11 @@ export interface AuthStoreOptions {
   storage: TokenStorage;
   /** Seeded accounts the demo switch offers; empty in production. */
   demoUsers?: string[];
+  /**
+   * Called whenever the current session is dropped (logout, expiry, a rejected token, or the start
+   * of a new login), so the per-user stores forget the last person's data.
+   */
+  onSessionCleared?: () => void;
 }
 
 export const MANAGER_HOME = '/manager/schedule';
@@ -34,6 +39,7 @@ export class AuthStore {
 
   private readonly api: Pick<Api, 'auth'>;
   private readonly storage: TokenStorage;
+  private readonly onSessionCleared: () => void;
   // Kept in memory only, and only when demo users are configured, so the switch asks once.
   private rememberedPassword: string | null = null;
 
@@ -41,12 +47,17 @@ export class AuthStore {
     this.api = options.api;
     this.storage = options.storage;
     this.demoUsers = options.demoUsers ?? [];
-    makeAutoObservable<AuthStore, 'api' | 'storage' | 'rememberedPassword'>(this, {
-      api: false,
-      storage: false,
-      rememberedPassword: false,
-      demoUsers: false,
-    });
+    this.onSessionCleared = options.onSessionCleared ?? (() => undefined);
+    makeAutoObservable<AuthStore, 'api' | 'storage' | 'onSessionCleared' | 'rememberedPassword'>(
+      this,
+      {
+        api: false,
+        storage: false,
+        onSessionCleared: false,
+        rememberedPassword: false,
+        demoUsers: false,
+      },
+    );
   }
 
   get isAuthenticated(): boolean {
@@ -145,5 +156,6 @@ export class AuthStore {
     this.token = null;
     this.user = null;
     this.storage.clear();
+    this.onSessionCleared();
   }
 }

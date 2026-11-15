@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -173,6 +173,75 @@ describe('AssistantScreen conversation', () => {
 
     expect(screen.getByText('Ask about your work')).toBeInTheDocument();
     expect(screen.queryByText('You worked 8 hours.')).not.toBeInTheDocument();
+  });
+});
+
+describe('AssistantScreen New conversation', () => {
+  it('is not shown while the conversation is empty', async () => {
+    await open();
+
+    expect(screen.queryByRole('button', { name: 'New conversation' })).not.toBeInTheDocument();
+  });
+
+  it('is shown as soon as there is a question, even before the answer arrives', async () => {
+    const { api, typist } = await open();
+    api.assistant.chat.mockReturnValue(new Promise(() => undefined));
+
+    await ask(typist, 'hello');
+
+    expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument();
+  });
+
+  it('is shown after a failed question, and clears the error and the Retry', async () => {
+    const { api, typist } = await open();
+    api.assistant.chat.mockRejectedValue(
+      new ApiError(500, 'internal_error', 'Something went wrong on our side.'),
+    );
+    await ask(typist, 'hi');
+    await screen.findByRole('alert');
+
+    await typist.click(screen.getByRole('button', { name: 'New conversation' }));
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByText('Ask about your work')).toBeInTheDocument();
+  });
+
+  it('is gone again once the conversation is cleared', async () => {
+    const { api, typist } = await open();
+    api.assistant.chat.mockResolvedValue(answer());
+    await ask(typist, 'hi');
+    await screen.findByText('You worked 8 hours.');
+
+    await typist.click(screen.getByRole('button', { name: 'New conversation' }));
+
+    expect(screen.queryByRole('button', { name: 'New conversation' })).not.toBeInTheDocument();
+  });
+
+  it('drops the answer to a question still pending when it is pressed', async () => {
+    const { api, typist } = await open();
+    let finish: (value: ChatOut) => void = () => undefined;
+    api.assistant.chat.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await ask(typist, 'hello');
+
+    await typist.click(screen.getByRole('button', { name: 'New conversation' }));
+    finish(answer({ message: 'A late answer' }));
+
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(screen.queryByText('A late answer')).not.toBeInTheDocument();
+    expect(screen.getByText('Ask about your work')).toBeInTheDocument();
+  });
+
+  it('empties the screen when the session ends, with no click needed', async () => {
+    const { api, typist, store } = await open();
+    api.assistant.chat.mockResolvedValue(answer({ message: "Dana's private answer" }));
+    await ask(typist, 'hi');
+    await screen.findByText("Dana's private answer");
+
+    act(() => store.auth.logout());
+
+    expect(screen.queryByText("Dana's private answer")).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New conversation' })).not.toBeInTheDocument();
   });
 });
 

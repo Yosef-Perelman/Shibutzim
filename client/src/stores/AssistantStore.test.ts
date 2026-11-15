@@ -274,3 +274,150 @@ describe('AssistantStore.reset', () => {
     expect(store.error).toBeNull();
   });
 });
+
+describe('AssistantStore.reset', () => {
+  function deferred<T>() {
+    let resolve: (value: T) => void = () => undefined;
+    let reject: (reason: unknown) => void = () => undefined;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it('empties the conversation', async () => {
+    const { api, store } = setup();
+    api.assistant.chat.mockResolvedValue(reply());
+    await store.send('How many hours?');
+
+    store.reset();
+
+    expect(store.messages).toEqual([]);
+    expect(store.history).toEqual([]);
+  });
+
+  it('drops a reply that arrives after the reset', async () => {
+    const { api, store } = setup();
+    const pending = deferred<ChatOut>();
+    api.assistant.chat.mockReturnValue(pending.promise);
+    const sending = store.send("Dana's private question");
+
+    store.reset();
+    pending.resolve(reply({ message: "Dana's private answer" }));
+    await sending;
+
+    expect(store.messages).toEqual([]);
+    expect(store.error).toBeNull();
+  });
+
+  it('drops an error that arrives after the reset', async () => {
+    const { api, store } = setup();
+    const pending = deferred<ChatOut>();
+    api.assistant.chat.mockReturnValue(pending.promise);
+    const sending = store.send('hi');
+
+    store.reset();
+    pending.reject(new ApiError(503, 'assistant_unavailable', 'Not available.'));
+    await sending;
+
+    expect(store.error).toBeNull();
+    expect(store.isUnavailable).toBe(false);
+  });
+
+  it('does not let a late reply end the isSending of a question asked after the reset', async () => {
+    const { api, store } = setup();
+    const first = deferred<ChatOut>();
+    const second = deferred<ChatOut>();
+    api.assistant.chat.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const sendingFirst = store.send('old question');
+    store.reset();
+    const sendingSecond = store.send('new question');
+
+    first.resolve(reply({ message: 'old answer' }));
+    await sendingFirst;
+
+    expect(store.isSending).toBe(true);
+    expect(store.messages.map((m) => m.content)).toEqual(['new question']);
+    second.resolve(reply({ message: 'new answer' }));
+    await sendingSecond;
+    expect(store.messages.map((m) => m.content)).toEqual(['new question', 'new answer']);
+    expect(store.isSending).toBe(false);
+  });
+
+  it('clears isSending at once, so the next person can ask', async () => {
+    const { api, store } = setup();
+    api.assistant.chat.mockReturnValue(new Promise(() => undefined));
+    void store.send('hi');
+    expect(store.isSending).toBe(true);
+
+    store.reset();
+
+    expect(store.isSending).toBe(false);
+  });
+
+  it('clears isConfirming and ignores a confirmation that finishes after the reset', async () => {
+    const { api, store } = setup();
+    api.assistant.chat.mockResolvedValue(reply({ proposal: makeProposal() }));
+    await store.send("Build next week's schedule");
+    const entryId = store.messages.at(1)?.id ?? -1;
+    const generating = deferred<unknown>();
+    api.schedules.generate.mockReturnValue(generating.promise);
+    const confirming = store.confirmProposal(entryId);
+    expect(store.isConfirming).toBe(true);
+
+    store.reset();
+
+    expect(store.isConfirming).toBe(false);
+    generating.resolve({});
+    await confirming;
+    expect(store.messages).toEqual([]);
+    expect(store.isConfirming).toBe(false);
+  });
+
+  it('clears the error and the unavailable flag', async () => {
+    const { api, store } = setup();
+    api.assistant.chat.mockRejectedValue(
+      new ApiError(503, 'assistant_unavailable', 'The assistant is not available right now.'),
+    );
+    await store.send('hi');
+    expect(store.error).not.toBeNull();
+    expect(store.isUnavailable).toBe(true);
+
+    store.reset();
+
+    expect(store.error).toBeNull();
+    expect(store.isUnavailable).toBe(false);
+    expect(store.canRetry).toBe(false);
+  });
+
+  it('lets the next conversation start cleanly', async () => {
+    const { api, store } = setup();
+    api.assistant.chat.mockResolvedValue(reply({ message: 'first' }));
+    await store.send('one');
+    store.reset();
+    api.assistant.chat.mockResolvedValue(reply({ message: 'second' }));
+
+    await store.send('two');
+
+    expect(api.assistant.chat).toHaveBeenLastCalledWith([{ role: 'user', content: 'two' }]);
+    expect(store.messages.map((m) => m.content)).toEqual(['two', 'second']);
+  });
+});
+
+describe('AssistantStore persistence', () => {
+  it('keeps the conversation in memory only: nothing is written to localStorage or sessionStorage', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    const { api, store } = setup();
+    api.assistant.chat.mockResolvedValue(reply({ proposal: makeProposal() }));
+    api.schedules.generate.mockResolvedValue({});
+
+    await store.send('How many hours?');
+    await store.confirmProposal(store.messages.at(1)?.id ?? -1);
+    store.dismissProposal(store.messages.at(1)?.id ?? -1);
+    store.reset();
+
+    expect(setItem).not.toHaveBeenCalled();
+    setItem.mockRestore();
+  });
+});

@@ -49,6 +49,8 @@ export class AvailabilityStore {
   private readonly api: AvailabilityStoreOptions['api'];
   private readonly now: () => Date;
   private requestId = 0;
+  // Bumped by reset(): a save that finishes after it must not write into the next person's form.
+  private epoch = 0;
 
   constructor(options: AvailabilityStoreOptions) {
     this.api = options.api;
@@ -57,11 +59,12 @@ export class AvailabilityStore {
     this.weekStart = shiftWeek(currentWeekStart(this.now()), 1);
     makeAutoObservable<
       AvailabilityStore,
-      'api' | 'now' | 'requestId' | 'saved' | 'draft' | 'scheduleLocked'
+      'api' | 'now' | 'requestId' | 'epoch' | 'saved' | 'draft' | 'scheduleLocked'
     >(this, {
       api: false,
       now: false,
       requestId: false,
+      epoch: false,
       saved: true,
       draft: true,
       scheduleLocked: true,
@@ -93,6 +96,21 @@ export class AvailabilityStore {
       return 'The schedule for this week already exists, so your answers can no longer be changed.';
     }
     return null;
+  }
+
+  /** Back to the initial state: next week, no answers, nothing still on its way lands. */
+  reset(): void {
+    this.requestId += 1;
+    this.epoch += 1;
+    this.weekStart = shiftWeek(currentWeekStart(this.now()), 1);
+    this.shifts = [];
+    this.status = 'idle';
+    this.error = null;
+    this.isSaving = false;
+    this.saveError = null;
+    this.saved = {};
+    this.draft = {};
+    this.scheduleLocked = false;
   }
 
   async loadWeek(weekStart: string): Promise<void> {
@@ -149,17 +167,20 @@ export class AvailabilityStore {
     const items = this.rows
       .filter(({ shift }) => shift.id in this.draft || shift.id in this.saved)
       .map(({ shift, status }) => ({ shift_id: shift.id, status }));
+    const epoch = this.epoch;
     this.isSaving = true;
     this.saveError = null;
     try {
       const rows = await this.api.availabilities.set({ week_start: this.weekStart, items });
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         for (const row of rows) this.saved[row.shift_id] = row.status;
         this.draft = {};
       });
       return true;
     } catch (error) {
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.saveError = messageOf(error);
         if (error instanceof ApiError && error.code === AVAILABILITY_LOCKED) {
           this.scheduleLocked = true;
@@ -168,7 +189,7 @@ export class AvailabilityStore {
       return false;
     } finally {
       runInAction(() => {
-        this.isSaving = false;
+        if (epoch === this.epoch) this.isSaving = false;
       });
     }
   }

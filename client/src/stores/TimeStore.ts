@@ -30,29 +30,47 @@ export class TimeStore {
 
   private readonly api: TimeStoreOptions['api'];
   private readonly now: () => Date;
+  // Bumped by reset(): an answer to a request made before it belongs to nobody now.
+  private epoch = 0;
 
   constructor(options: TimeStoreOptions) {
     this.api = options.api;
     this.now = options.now ?? (() => new Date());
-    makeAutoObservable<TimeStore, 'api' | 'now'>(this, { api: false, now: false });
+    makeAutoObservable<TimeStore, 'api' | 'now' | 'epoch'>(this, {
+      api: false,
+      now: false,
+      epoch: false,
+    });
   }
 
   get isClockedIn(): boolean {
     return this.openEntry !== null;
   }
 
+  reset(): void {
+    this.epoch += 1;
+    this.openEntry = null;
+    this.status = 'idle';
+    this.error = null;
+    this.isBusy = false;
+    this.actionError = null;
+  }
+
   async load(): Promise<void> {
+    const epoch = this.epoch;
     this.status = 'loading';
     this.error = null;
     const to = localToday(this.now());
     try {
       const entries = await this.api.timeEntries.list({ from: addDays(to, -LOOKBACK_DAYS), to });
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.openEntry = entries.find((entry) => entry.clock_out === null) ?? null;
         this.status = 'loaded';
       });
     } catch (error) {
       runInAction(() => {
+        if (epoch !== this.epoch) return;
         this.status = 'error';
         this.error = messageOf(error);
       });
@@ -81,23 +99,26 @@ export class TimeStore {
     nextOpenEntry: (result: TimeEntry) => TimeEntry | null,
     staleCode: string,
   ): Promise<boolean> {
+    const epoch = this.epoch;
     this.isBusy = true;
     this.actionError = null;
     try {
       const result = await request();
       runInAction(() => {
-        this.openEntry = nextOpenEntry(result);
+        if (epoch === this.epoch) this.openEntry = nextOpenEntry(result);
       });
       return true;
     } catch (error) {
       runInAction(() => {
-        this.actionError = messageOf(error);
+        if (epoch === this.epoch) this.actionError = messageOf(error);
       });
-      if (error instanceof ApiError && error.code === staleCode) await this.load();
+      if (epoch === this.epoch && error instanceof ApiError && error.code === staleCode) {
+        await this.load();
+      }
       return false;
     } finally {
       runInAction(() => {
-        this.isBusy = false;
+        if (epoch === this.epoch) this.isBusy = false;
       });
     }
   }

@@ -56,6 +56,8 @@ export class RootStore {
       api: this.api,
       storage: options.storage ?? createLocalTokenStorage(),
       demoUsers: options.demoUsers ?? configuredDemoUsers(),
+      // Nothing of the last person may stay in memory for the next one (product-definition §5.5).
+      onSessionCleared: () => this.resetUserData(),
     });
     this.schedule = new ScheduleStore({
       api: this.api,
@@ -66,5 +68,15 @@ export class RootStore {
     this.team = new TeamStore({ api: this.api });
     this.time = new TimeStore({ api: this.api });
     this.assistant = new AssistantStore({ api: this.api });
+  }
+
+  /** Every store that holds one person's data goes back to its initial state. */
+  private resetUserData(): void {
+    this.assistant.reset();
+    this.schedule.reset();
+    this.pay.reset();
+    this.team.reset();
+    this.time.reset();
+    this.availability.reset();
   }
 }
