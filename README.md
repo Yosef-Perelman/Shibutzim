@@ -136,6 +136,13 @@ cd server && uv run pytest -q                # server tests (needs the database)
 cd client && npm run lint && npm run typecheck && npm test
 ```
 
+If you commit, enable the committed pre-commit hook once per clone. It runs the checks above for whatever you
+staged:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## The assistant
 
 A chat (the Assistant screen) answers questions about shifts, hours, pay and company policy, and prepares a
@@ -211,10 +218,16 @@ starts from a blank prompt: it starts from files that say what to build, how, an
    docs → plan → tests → code, and `git log --first-parent main` shows one line per plan.
 4. **Guardrails and hooks.** [`.claude/settings.json`](.claude/settings.json) and [`.claude/hooks/`](.claude/hooks)
    enforce rules the agent cannot talk its way around: `.env` files are never read or edited, committed migrations
-   are never edited, `ruff` and the test suite run after every Python edit and failures are fed back, force-push and
-   `rm -rf` are denied, and every session is archived.
-5. **Subagents.** [`.claude/agents/`](.claude/agents): `backend` (server code only), `frontend` (client code only)
-   and `qa` (writes tests and evals, read-only on source).
+   are never edited, `ruff` and the test suite run after every Python edit and after any shell command that changed
+   source, and failures are fed back. One scope guard decides who may write where, for file tools and for shell
+   commands alike. A committed git pre-commit hook rejects a commit that fails lint or tests, whatever wrote the
+   files, and skipping it is denied. Force-push and `rm -rf` are denied, and every session is archived with its
+   subagent transcripts. The hooks have their own tests.
+5. **Subagents.** [`.claude/agents/`](.claude/agents), each with a defined model: `backend` (server code only),
+   `frontend` (client code only) and `qa` (writes tests and evals, read-only on source) on Sonnet, and a read-only
+   `reviewer` on Opus that checks every plan branch against its plan and the docs before it merges. Every plan step
+   names its owner, the scope guard stops the main session from writing source itself, and an audit over the archived
+   sessions shows how much work was delegated and whether anything slipped through the shell.
 6. **Skills.** [`.claude/skills/`](.claude/skills): `new-plan` (draft the next plan from the roadmap and stop for
    approval), `new-endpoint` (tests first, then schema, repository, service, router), `add-pay-rule` (a fixed
    five-case test matrix per rule) and `debug-schedule` (explain why the solver could not fill a week).
