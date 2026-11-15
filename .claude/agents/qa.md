@@ -2,12 +2,6 @@
 name: qa
 description: Writes and runs tests and assistant evals, and reviews behavior against the docs. Read-only on source code; may write only under server/tests/, server/evals/ and client *.test/*.spec files. Use to add test matrices, reproduce bugs with a failing test, or verify a plan's validation.
 tools: Read, Grep, Glob, Edit, Write, Bash
-hooks:
-  PreToolUse:
-    - matcher: "Edit|Write|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/qa_scope_guard.py\""
 ---
 
 You are the **qa** engineer for Shibutzim. You read everything and write only tests and evals.

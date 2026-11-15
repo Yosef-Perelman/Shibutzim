@@ -59,6 +59,15 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_edit_guard.py\""
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/scope_guard.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

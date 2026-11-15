@@ -26,8 +26,11 @@ dist/
 *.tsbuildinfo
 .vite/
 
-# Claude Code local-only settings
+# Claude Code local-only settings and hook state
 .claude/settings.local.json
+.claude/.hook-state.json
+.claude/main-edits.allow
+.claude/.main-edits.log
 
 # Editors and OS
 .DS_Store
