@@ -51,12 +51,12 @@ gravity: it is where scope, assumptions and risks are decided.
 
 ## Closing a plan
 
-1. Run every validation item and record failures honestly.
-2. Run the `reviewer` agent on the branch. Record its findings and what was done about each under **Review**; fix
+1. Run the `reviewer` agent on the branch. Record its findings and what was done about each under **Review**; fix
    every `blocker` (through the step's owner), then run the reviewer again. The plan does not close with an open
    blocker.
-3. Run `python3 .claude/hooks/archive_conversation.py --audit` and note, in **What changed vs. plan**, the Agent
-   calls by type and the number of shell writes into source for this plan's sessions.
+2. Run every validation item (again, after any fix) and record failures honestly.
+3. Run `python3 .claude/hooks/archive_conversation.py --audit <transcripts of this plan's sessions>` and note, in
+   **What changed vs. plan**, the Agent calls by type and the number of shell writes into source.
 4. Fill **What changed vs. plan**: deviations, why, and anything deferred.
 5. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
 6. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).

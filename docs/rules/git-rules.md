@@ -47,7 +47,10 @@ when it is off).
 - `server/` staged: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`.
 - `client/` staged: `npm run lint`, `npm run typecheck`, `npx prettier --check` on the staged client files,
   `npm test`.
-- Only docs, plans or `.claude/` staged: nothing runs.
+- `.claude/hooks/` staged: `python3 -m unittest discover -s .claude/hooks/tests`.
+- Only docs, plans or the rest of `.claude/` staged: nothing runs.
+- A deletion counts as a change. The checks run on the working tree, not on the index, so a partly staged file is
+  checked as it is on disk (and an untracked broken file under `server/` can fail an unrelated commit).
 
 A failing hook means the commit did not happen: fix the cause and commit again.
 

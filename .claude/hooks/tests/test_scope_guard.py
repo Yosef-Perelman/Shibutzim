@@ -103,6 +103,55 @@ class MainSessionShellTests(ScopeGuardTestCase):
         self.assertBlocked(self.bash("bash -c 'echo x > server/app/x.py'"))
         self.assertBlocked(self.bash("bash <<'EOF'\necho x > server/app/x.py\nEOF"))
 
+    def test_sed_with_several_files_checks_every_file(self):
+        self.assertBlocked(self.bash("sed -i '' 's/a/b/' server/app/x.py README.md"))
+        self.assertBlocked(self.bash("sed -i '' 's/a/b/' README.md server/app/x.py"))
+        self.assertAllowed(self.bash("sed -i '' 's/a/b/' README.md AGENTS.md"))
+
+    def test_script_piped_into_an_interpreter_is_looked_into(self):
+        self.assertBlocked(self.bash("cat <<'EOF' | python3 -\nopen('server/app/x.py','w').write('x')\nEOF"))
+        self.assertBlocked(self.bash("echo \"open('server/app/x.py','w').write('x')\" | python3"))
+        self.assertBlocked(self.bash("cat <<EOF | bash\necho x > server/app/x.py\nEOF"))
+        self.assertAllowed(self.bash("cat <<'EOF' | python3 -\nprint(1)\nEOF"))
+
+    def test_xargs_find_exec_and_timeout_are_unwrapped(self):
+        for command in (
+            "find server -name '*.py' -exec sed -i '' 's/a/b/' {} +",
+            "find client/src -name '*.ts' -exec tee {} \\;",
+            "find server -name '*.orig' -delete",
+            "git ls-files server | xargs sed -i '' 's/a/b/'",
+            "ls server/app | xargs -n1 rm",
+            "timeout 5 tee server/app/x.py",
+            "timeout -s KILL 5 sh -c 'echo x > server/app/x.py'",
+        ):
+            with self.subTest(command=command):
+                self.assertBlocked(self.bash(command))
+        self.assertAllowed(self.bash("find server -name '*.py' -exec grep foo {} +"))
+        self.assertAllowed(self.bash("ls server | xargs grep foo"))
+        self.assertAllowed(self.bash("timeout 5 uv run pytest -q"))
+
+    def test_redirect_stuck_to_a_word_is_detected(self):
+        self.assertBlocked(self.bash("echo x>server/app/x.py"))
+        self.assertBlocked(self.bash("echo x>>client/src/a.ts"))
+        self.assertAllowed(self.bash("cd server && ls app 2>/dev/null"))
+        self.assertAllowed(self.bash("uv run pytest -q 2>&1 | tail -3"))
+
+    def test_stderr_redirect_does_not_turn_into_a_path(self):
+        self.assertAllowed(self.bash("sed -n 1,5p app/x.py 2>/dev/null", cwd=str(self.project / "server")))
+
+    def test_paths_that_differ_only_in_case_are_the_same_path(self):
+        self.assertBlocked(self.bash("echo x > SERVER/app/x.py"))
+        self.assertBlocked(self.bash("echo x > Client/Src/a.ts"))
+
+    def test_the_escape_hatch_file_cannot_be_written_by_the_main_session(self):
+        self.assertBlocked(self.bash("touch .claude/main-edits.allow"), "escape hatch")
+        self.assertBlocked(self.bash("echo x > .claude/main-edits.allow"))
+
+    def test_only_caches_and_build_output_are_exempt(self):
+        self.assertAllowed(self.bash("echo x > client/dist/index.html"))
+        self.assertAllowed(self.bash("echo x > server/static/index.html"))
+        self.assertBlocked(self.bash("echo x > client/src/dist/x.ts"))
+
     def test_relative_path_from_a_source_cwd_is_resolved(self):
         self.assertBlocked(self.bash("echo x > app/y.py", cwd=str(self.project / "server")))
 
@@ -176,6 +225,22 @@ class MainSessionEditTests(ScopeGuardTestCase):
         self.assertAllowed(self.edit("server/app/main.py"))
         self.assertAllowed(self.bash("echo x > server/app/x.py"))
         self.assertTrue((self.project / ".claude" / ".main-edits.log").exists())
+
+    def test_nobody_may_write_the_escape_hatch_by_edit_even_with_it_present(self):
+        for agent in (None, "backend", "general-purpose"):
+            with self.subTest(agent=agent):
+                self.assertBlocked(self.edit(".claude/main-edits.allow", agent=agent, tool="Write"), "escape hatch")
+        (self.project / ".claude" / "main-edits.allow").write_text("")
+        self.assertBlocked(self.edit(".claude/main-edits.allow", tool="Write"))
+
+    def test_paths_in_a_different_case_are_the_same_path(self):
+        self.assertBlocked(self.edit("Server/app/main.py"))
+        self.assertBlocked(self.edit("CLIENT/SRC/App.tsx", tool="Write"))
+
+    def test_a_git_worktree_inside_the_project_is_treated_as_the_project(self):
+        self.assertBlocked(self.edit(".claude/worktrees/w1/server/app/x.py"))
+        self.assertAllowed(self.edit(".claude/worktrees/w1/server/app/x.py", agent="backend"))
+        self.assertAllowed(self.edit(".claude/worktrees/w1/docs/x.md"))
 
     def test_marker_file_does_not_widen_a_subagent(self):
         (self.project / ".claude" / "main-edits.allow").write_text("")

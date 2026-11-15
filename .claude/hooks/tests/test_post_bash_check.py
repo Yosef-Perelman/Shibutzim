@@ -14,7 +14,7 @@ DB_MESSAGE = "Database not reachable – run `docker compose up -d db` (then ret
 FAKE_UV = """#!/bin/bash
 echo "uv $*" >> "$FAKE_LOG"
 case "$*" in
-  *pytest*) echo "$FAKE_PYTEST_OUT"; exit "${FAKE_PYTEST_CODE:-0}" ;;
+  *pytest*) [ -n "$FAKE_PYTEST_SLEEP" ] && exec sleep "$FAKE_PYTEST_SLEEP"; echo "$FAKE_PYTEST_OUT"; exit "${FAKE_PYTEST_CODE:-0}" ;;
   *"ruff check"*) echo "$FAKE_RUFF_OUT"; exit "${FAKE_RUFF_CODE:-0}" ;;
 esac
 exit 0
@@ -131,6 +131,28 @@ class ServerChecksTests(PostBashTestCase):
         self.write("server/pyproject.toml", "[project]\nname='y'\n")
         code, _ = self.run_check()
         self.assertEqual((code, self.calls()), (0, []))
+
+    def test_slow_pytest_gives_a_timeout_message_instead_of_a_crash(self):
+        self.write("server/app/a.py")
+        code, stderr = self.run_check(FAKE_PYTEST_SLEEP="30", HOOK_PYTEST_TIMEOUT="1")
+        self.assertEqual(code, 2)
+        self.assertIn("did not finish in time", stderr)
+        self.assertNotIn("Traceback", stderr)
+
+    def test_a_reviewer_bash_call_never_triggers_a_check(self):
+        self.write("server/app/a.py")
+        event = self.bash_event()
+        event["agent_type"] = "reviewer"
+        code, _ = run_hook("post_bash_check.py", event, self.project, self.env)
+        self.assertEqual((code, self.calls()), (0, []))
+
+    def test_malformed_input_is_a_quiet_no_op(self):
+        import subprocess as sp, sys
+        from hook_helpers import HOOKS_DIR
+        for script in ("post_bash_check.py", "post_edit_py.py", "post_edit_ts.py"):
+            result = sp.run([sys.executable, str(HOOKS_DIR / script)], input="not json", capture_output=True,
+                            text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": str(self.project)})
+            self.assertEqual((script, result.returncode, result.stderr), (script, 0, ""))
 
     def test_interrupted_command_is_not_checked(self):
         self.write("server/app/a.py")

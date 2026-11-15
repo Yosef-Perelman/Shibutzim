@@ -17,9 +17,12 @@ import checks
 
 
 def main() -> None:
-    event = json.load(sys.stdin)
-    if (event.get("tool_response") or {}).get("interrupted"):
+    try:
+        event = json.load(sys.stdin)
+    except ValueError:
         return
+    if (event.get("tool_response") or {}).get("interrupted") or event.get("agent_type") == "reviewer":
+        return  # the reviewer is read-only: a check would rewrite files it did not touch
     project = checks.project_dir(event)
     changed = checks.changed_files(project)
     python_files = [p for p in changed if checks.is_server_python(project, p)]
@@ -27,6 +30,7 @@ def main() -> None:
     if not python_files and not client_files:
         return
 
+    checks.start_budget()
     problems = checks.check_python(project, python_files) + checks.check_client(project, client_files)
     checks.record(project, python_files + client_files)
     if problems:

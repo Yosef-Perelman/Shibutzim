@@ -25,8 +25,8 @@ def assistant(*blocks: dict, message_id: str = "m1") -> dict:
     }
 
 
-def tool(name: str, **tool_input) -> dict:
-    return {"type": "tool_use", "id": f"toolu_{name}_{abs(hash(json.dumps(tool_input))) % 10000}",
+def tool(name: str, tool_id: str = "", **tool_input) -> dict:
+    return {"type": "tool_use", "id": tool_id or f"toolu_{name}_{abs(hash(json.dumps(tool_input))) % 10000}",
             "name": name, "input": tool_input}
 
 
@@ -46,7 +46,7 @@ class AuditTestCase(HookTestCase):
         return self.write_transcript([
             {"type": "user", "timestamp": "2026-11-12T11:59:00.000Z", "message": {"role": "user", "content": "go"}},
             assistant(
-                tool("Agent", description="Write tests", subagent_type="qa", prompt="write the tests"),
+                tool("Agent", tool_id="toolu_qa1", description="Write tests", subagent_type="qa", prompt="write the tests"),
                 bash("cat > server/app/x.py <<'EOF'\nx = 1\nEOF"),
                 bash("sed -i '' 's/a/b/' client/src/App.tsx"),
                 bash("cd server && uv run pytest -q"),
@@ -76,6 +76,10 @@ class AuditCountTests(AuditTestCase):
         self.assertIn("edit_write=2", output)
         self.assertIn("2026-11-12", output)
         self.assertIn(SESSION[:8], output)
+
+    def test_shell_edits_of_client_config_files_are_not_counted(self):
+        path = self.write_transcript([assistant(bash("echo x > client/vite.config.ts"), bash("echo x > docs/a.md"))])
+        self.assertIn("shell_source_writes=0", self.audit(path))
 
     def test_a_session_without_agent_calls_says_none(self):
         path = self.write_transcript([assistant(bash("ls"))])
@@ -109,7 +113,7 @@ class ArchiveSubagentTests(AuditTestCase):
         (subagents / "agent-a1.jsonl").write_text('{"type":"user","message":{"role":"user","content":"hi"}}\n')
         (subagents / "agent-a1.meta.json").write_text(json.dumps({
             "agentType": "qa", "description": "Write tests", "pickedEffortModel": "claude-sonnet-5-5",
-            "finished": True,
+            "toolUseId": "toolu_qa1", "finished": True,
         }))
         return transcript
 
@@ -126,6 +130,7 @@ class ArchiveSubagentTests(AuditTestCase):
         self.assertIn("Subagents invoked", markdown)
         self.assertIn("qa", markdown)
         self.assertIn("Write tests", markdown)
+        self.assertIn("(claude-sonnet-5-5)", markdown)
 
     def test_markdown_says_none_when_no_subagent_was_used(self):
         transcript = self.write_transcript([assistant(bash("ls"))])

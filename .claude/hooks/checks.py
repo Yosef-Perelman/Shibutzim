@@ -14,12 +14,15 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 STATE_FILE = Path(".claude", ".hook-state.json")
-PYTEST_TIMEOUT_SECONDS = 60
-NODE_TIMEOUT_SECONDS = 60
+PYTEST_TIMEOUT_SECONDS = int(os.environ.get("HOOK_PYTEST_TIMEOUT", "60"))  # the variable is for the hook tests
+RUFF_TIMEOUT_SECONDS = 20
+NODE_TIMEOUT_SECONDS = 30
+TOTAL_BUDGET_SECONDS = 105  # one hook run, below the 120 s timeout in settings.json
 GIT_TIMEOUT_SECONDS = 10
 MAX_OUTPUT_LINES = 60
 PYTEST_NO_TESTS_COLLECTED = 5
@@ -41,7 +44,20 @@ def tail(text: str) -> str:
     return "\n".join(lines[-MAX_OUTPUT_LINES:])
 
 
+_deadline: List[float] = [0.0]
+
+
+def start_budget(seconds: int = TOTAL_BUDGET_SECONDS) -> None:
+    """All commands of one hook run share this budget, so the hook never reaches Claude Code's own timeout."""
+    _deadline[0] = time.monotonic() + seconds
+
+
 def run(command: List[str], cwd: Path, timeout: int) -> "subprocess.CompletedProcess[str]":
+    if _deadline[0]:
+        remaining = _deadline[0] - time.monotonic()
+        if remaining <= 1:
+            raise subprocess.TimeoutExpired(command, 0)
+        timeout = min(timeout, int(remaining))
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
@@ -81,13 +97,22 @@ def mtime_ns(path: Path) -> Optional[int]:
         return None
 
 
+def relative_key(project: Path, path: Path) -> Optional[str]:
+    """The state-file key of a path: relative to the project, without following symlinks."""
+    try:
+        return Path(os.path.normpath(str(path))).relative_to(project).as_posix()
+    except ValueError:
+        return None
+
+
 def record(project: Path, paths: Iterable[Path]) -> None:
     """Remember the current modification time of each file as 'checked'."""
     state = load_state(project)
     for path in paths:
         stamp = mtime_ns(path)
-        if stamp is not None:
-            state[path.resolve().relative_to(project).as_posix()] = stamp
+        key = relative_key(project, path)
+        if stamp is not None and key is not None:
+            state[key] = stamp
     target = project / STATE_FILE
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -116,11 +141,11 @@ def changed_files(project: Path) -> List[Path]:
         status, relative = entry[:2], entry[3:]
         if "R" in status or "C" in status:
             index += 1  # the next entry is the original path
-        path = (project / relative).resolve()
+        path = project / relative
         stamp = mtime_ns(path)
         if stamp is None or not path.is_file():
             continue
-        if state.get(path.relative_to(project).as_posix()) != stamp:
+        if state.get(relative) != stamp:
             found.append(path)
     return found
 
@@ -138,16 +163,19 @@ def check_python(project: Path, files: List[Path]) -> List[str]:
 
     problems: List[str] = []
     names = [str(path) for path in files]
-    run([uv, "run", "ruff", "format", *names], server, PYTEST_TIMEOUT_SECONDS)
-    lint = run([uv, "run", "ruff", "check", "--fix", *names], server, PYTEST_TIMEOUT_SECONDS)
-    if lint.returncode != 0:
-        problems.append("ruff check found problems it could not fix:\n" + tail(lint.stdout + lint.stderr))
+    try:
+        run([uv, "run", "ruff", "format", *names], server, RUFF_TIMEOUT_SECONDS)
+        lint = run([uv, "run", "ruff", "check", "--fix", *names], server, RUFF_TIMEOUT_SECONDS)
+        if lint.returncode != 0:
+            problems.append("ruff check found problems it could not fix:\n" + tail(lint.stdout + lint.stderr))
+    except subprocess.TimeoutExpired:
+        problems.append(f"ruff did not finish in {RUFF_TIMEOUT_SECONDS}s, so it and pytest did not run completely.")
 
     try:
         tests = run([uv, "run", "pytest", "-q", "-x"], server, PYTEST_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         problems.append(
-            f"pytest exceeded {PYTEST_TIMEOUT_SECONDS}s. The suite normally takes about 10 s: look for a hanging "
+            f"pytest did not finish in time (limit {PYTEST_TIMEOUT_SECONDS}s). The suite normally takes about 10 s: look for a hanging "
             "test or a database that does not answer (`docker compose ps`), then run `uv run pytest -q -x` by hand."
         )
         return problems

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pre-commit hook: lint, format check and tests for what the commit touches, whoever or whatever wrote the files
-# (an Edit hook, a shell command, a human). Docs-only commits run nothing.
+# (an Edit hook, a shell command, a human). A deletion counts as a change. Docs-only commits run nothing.
 #
 # Enable it once per clone:  git config core.hooksPath .githooks
 # Never skip it with --no-verify (denied in .claude/settings.json); fix the failure instead.
@@ -9,7 +9,8 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
-staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+staged="$(git -c core.quotePath=false diff --cached --name-only)"                      # includes deletions
+present="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)"  # files that still exist
 
 if grep -q '^server/' <<<"$staged"; then
   command -v uv >/dev/null || { echo "pre-commit: uv is not installed (brew install uv)." >&2; exit 1; }
@@ -28,12 +29,19 @@ if grep -q '^client/' <<<"$staged"; then
   client_files=()
   while IFS= read -r file; do
     client_files+=("${file#client/}")
-  done < <(grep '^client/' <<<"$staged")
+  done < <(grep '^client/' <<<"$present" || true)
   (
     cd client
     npm run lint
     npm run typecheck
-    npx prettier --check --ignore-unknown "${client_files[@]}"
+    if [ "${#client_files[@]}" -gt 0 ]; then
+      npx prettier --check --ignore-unknown "${client_files[@]}"
+    fi
     npm test
   )
+fi
+
+if grep -q '^\.claude/hooks/' <<<"$staged"; then
+  echo "pre-commit: hooks (unittest)"
+  python3 -m unittest discover -s .claude/hooks/tests
 fi

@@ -37,6 +37,13 @@ class CheckSetupTests(HookTestCase):
         subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=self.project, check=True)
         self.assertEqual(self.run_hook(), "")
 
+    def test_source_files_that_are_already_dirty_count_as_checked(self):
+        (self.project / "server" / "pyproject.toml").write_text("[project]\nname='x'\n")
+        (self.project / "server" / "app" / "a.py").write_text("x = 1\n")
+        self.run_hook()
+        state = json.loads((self.project / ".claude" / ".hook-state.json").read_text())
+        self.assertIn("server/app/a.py", state)
+
     def test_hooks_path_not_set_warns_with_the_command(self):
         output = json.loads(self.run_hook())
         context = output["hookSpecificOutput"]["additionalContext"]

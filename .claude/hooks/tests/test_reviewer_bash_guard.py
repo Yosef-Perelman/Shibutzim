@@ -22,6 +22,7 @@ class ReviewerBashGuardTests(HookTestCase):
             "git blame -L 1,20 server/app/main.py",
             "git rev-parse --abbrev-ref HEAD",
             "git merge-base main HEAD",
+            'git log --format="%C(auto)%h %s"',
         ):
             with self.subTest(command=command):
                 code, stderr = self.run_command(command)

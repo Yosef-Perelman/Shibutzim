@@ -19,13 +19,18 @@ import checks
 
 
 def main() -> None:
-    event = json.load(sys.stdin)
+    try:
+        event = json.load(sys.stdin)
+    except ValueError:
+        return
     raw_path = (event.get("tool_input") or {}).get("file_path", "")
     project = checks.project_dir(event)
-    path = Path(raw_path).resolve()
+    path = Path(raw_path) if Path(raw_path).is_absolute() else project / raw_path
+    path = path.resolve()
     if not raw_path or not checks.is_client_source(project, path):
         return
 
+    checks.start_budget()
     problems = checks.check_client(project, [path])
     checks.record(project, [path])
     if problems:

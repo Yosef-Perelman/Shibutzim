@@ -300,7 +300,7 @@ def archive(transcript: Path, project: Path, event: Optional[dict]) -> Path:
 
 
 def shell_source_writes(records: List[dict], project: Path) -> int:
-    """Bash commands of the main conversation that wrote under `server/` or `client/` (see scope_guard.py)."""
+    """Bash commands of the main conversation that wrote under `server/` or `client/src/` (see scope_guard.py)."""
     import scope_guard
 
     cwd_of = {}
@@ -324,7 +324,7 @@ def shell_source_writes(records: List[dict], project: Path) -> int:
             relative = scope_guard.relative_to_project(target, project)
             if relative is None or scope_guard.is_generated(relative):
                 continue
-            if scope_guard.under(relative, "server") or scope_guard.under(relative, "client"):
+            if not scope_guard.scope_allows("main", relative):  # server/ and client/src/
                 count += 1
                 break
     return count

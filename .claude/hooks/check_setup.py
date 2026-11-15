@@ -5,6 +5,10 @@ Checks that `git config core.hooksPath` is `.githooks` (so the committed pre-com
 installed, and that `client/node_modules/.bin` exists. Prints nothing when all is well; otherwise it adds the
 warnings to the session as `additionalContext`. Never blocks: the exit code is always 0.
 
+It also records the source files that are already modified or untracked as "checked" in
+`.claude/.hook-state.json`, so the post-Bash hook later checks only what changed during the session, not work
+in progress the user left in the tree.
+
 Written for the system Python (3.9+), standard library only.
 """
 import json
@@ -13,6 +17,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import checks
+
+
+def baseline(project: Path) -> None:
+    """Treat source files that are dirty right now as already checked."""
+    dirty = checks.changed_files(project)
+    checks.record(project, [p for p in dirty if checks.is_server_python(project, p) or checks.is_client_source(project, p)])
 
 
 def hooks_path(project: Path) -> str:
@@ -45,6 +57,7 @@ def main() -> None:
     except ValueError:
         event = {}
     project = Path(os.environ.get("CLAUDE_PROJECT_DIR") or event.get("cwd") or ".").resolve()
+    baseline(project)
     found = warnings_for(project)
     if found:
         text = "Setup warnings:\n" + "\n".join(f"- {line}" for line in found)

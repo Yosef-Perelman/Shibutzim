@@ -71,7 +71,8 @@ Enforced by tooling (`.claude/settings.json` and `.claude/hooks/`):
   `server/` or `client/src/`; `backend` writes `server/` and `docs/`, `frontend` writes `client/` and `docs/`, `qa`
   writes only tests and evals, `reviewer` writes nothing. A blocked call says which agent to use.
 - A committed git pre-commit hook (`.githooks/pre-commit`) runs ruff and pytest when `server/` is staged, and lint,
-  typecheck, Prettier and the client tests when `client/` is staged. It needs `git config core.hooksPath .githooks`
+  typecheck, Prettier and the client tests when `client/` is staged, and the hook tests when `.claude/hooks/` is
+  staged. A deletion counts as a change. It needs `git config core.hooksPath .githooks`
   once per clone; a session-start check warns when that is missing. Skipping it with `--no-verify` or `-n` is denied.
 - `git push --force` and `rm -rf` are denied.
 - Every Claude Code session is archived to `conversations/` (raw JSONL, subagent transcripts and readable Markdown
@@ -95,8 +96,9 @@ Enforced by you:
 - UI reference screenshots in `design/references/` are git-ignored and private (other sites' designs). Plan 003 derived
   `docs/design-system.md` from them; commit only what is derived.
 
-Hooks guard the Edit and Write tools. A shell command can still bypass them, so don't use Bash to write files the
-hooks protect.
+The `.env` and migration guards cover the file tools only, so don't use Bash to write files they protect. The scope
+guard also parses Bash, but only on a best-effort basis (it can miss a write and can over-block); the pre-commit
+hook and CI are the backstop.
 
 ## Never compromise on
 
@@ -110,10 +112,10 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 | `frontend` | subagent | `claude-sonnet-5-5` | client code only (`client/`) |
 | `qa` | subagent | `claude-sonnet-5-5` | writing and running tests and evals; read-only on source |
 | `reviewer` | subagent | `claude-opus-5-5` | read-only review of a plan branch against its plan and the docs; the last step of every plan before it closes |
-| `/new-plan` | skill | drafting the next plan from the roadmap |
-| `/new-endpoint` | skill | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
-| `/add-pay-rule` | skill | adding a pay rule with its five-case matrix; `dry run` lists the work and stops |
-| `/debug-schedule` | skill | explaining why the solver couldn't fill a week (runs `scripts/debug_schedule.py`, read-only) |
+| `/new-plan` | skill | – | drafting the next plan from the roadmap |
+| `/new-endpoint` | skill | – | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
+| `/add-pay-rule` | skill | – | adding a pay rule with its five-case matrix; `dry run` lists the work and stops |
+| `/debug-schedule` | skill | – | explaining why the solver couldn't fill a week (runs `scripts/debug_schedule.py`, read-only) |
 
 ## Common commands
 

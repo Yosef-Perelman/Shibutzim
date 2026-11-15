@@ -14,7 +14,7 @@ import shlex
 import sys
 
 ALLOWED_SUBCOMMANDS = {"diff", "log", "show", "status", "ls-files", "blame", "rev-parse", "merge-base"}
-FORBIDDEN_CHARACTERS = re.compile(r"[;&|<>`$()\n\r\\]")
+FORBIDDEN_CHARACTERS = re.compile(r"[;&|<>`$\n\r\\]")
 FORBIDDEN_OPTIONS = ("--output", "--no-index", "--ext-diff", "--textconv", "--open-files-in-pager", "--exec-path")
 
 
