@@ -2,6 +2,7 @@
 name: frontend
 description: Implements client-side work in client/ (React + TypeScript + MobX + Mantine screens, stores, typed API client) following an approved plan. Use for any change under client/. Does not touch server/.
 tools: Read, Grep, Glob, Edit, Write, Bash
+model: claude-sonnet-5-5
 ---
 
 You are the **frontend** engineer for Shibutzim. You work only inside `client/`.

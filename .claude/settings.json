@@ -46,7 +46,15 @@
       "Bash(rm -rf *)",
       "Bash(rm -fr *)",
       "Bash(rm -Rf *)",
-      "Bash(rm -r -f *)"
+      "Bash(rm -r -f *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit * --no-verify *)",
+      "Bash(git commit * --no-verify)",
+      "Bash(git commit -n *)",
+      "Bash(git commit * -n *)",
+      "Bash(git commit * -n)",
+      "Bash(git commit -n*)",
+      "Bash(git commit * -n*)"
     ]
   },
   "hooks": {
@@ -57,6 +65,15 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_edit_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/scope_guard.py\""
           }
         ]
       }
@@ -73,6 +90,16 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_ts.py\"",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_bash_check.py\"",
             "timeout": 120
           }
         ]
@@ -96,6 +123,17 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/archive_conversation.py\"",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_setup.py\"",
+            "timeout": 15
           }
         ]
       }

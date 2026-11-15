@@ -38,8 +38,25 @@ The commit history is part of the showcase: it should read **docs → plan → t
 - **Why a merge commit:** every commit of the plan stays in `main`'s history, and the merge commit marks where the
   plan ends. `git log --first-parent main` shows one line per plan; `git log main` shows every step.
 
+## Pre-commit hook
+
+[`.githooks/pre-commit`](../../.githooks/pre-commit) is committed and runs for every commit, whoever or whatever
+wrote the files. Enable it once per clone with `git config core.hooksPath .githooks` (a session-start check warns
+when it is off).
+
+- `server/` staged: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`.
+- `client/` staged: `npm run lint`, `npm run typecheck`, `npx prettier --check` on the staged client files,
+  `npm test`.
+- `.claude/hooks/` staged: `python3 -m unittest discover -s .claude/hooks/tests`.
+- Only docs, plans or the rest of `.claude/` staged: nothing runs.
+- A deletion counts as a change. The checks run on the working tree, not on the index, so a partly staged file is
+  checked as it is on disk (and an untracked broken file under `server/` can fail an unrelated commit).
+
+A failing hook means the commit did not happen: fix the cause and commit again.
+
 ## Never
 
+- Never skip the pre-commit hook (`--no-verify`, `-n`). It is denied in `.claude/settings.json`; fix the failure.
 - Never force-push (`--force`, `-f`, `--force-with-lease`) or rewrite published history. (Denied in settings.)
 - Never commit `.env`, secrets, the local planning brief, or generated files (`node_modules`, `__pycache__`,
   `dist`).

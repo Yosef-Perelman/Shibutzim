@@ -38,7 +38,11 @@ gravity: it is where scope, assumptions and risks are decided.
 - **Assumptions**: everything taken as true without verification. A wrong assumption is the most common cause of a
   wrong implementation.
 - **Steps**: numbered, each small enough to verify on its own and ideally one commit. Tests come before the code
-  they test.
+  they test. Every step names its **owner**: `N. **owner** – text`, with owner one of `backend`, `frontend`, `qa`
+  or `main`. Source under `server/` is changed by `backend`, under `client/src/` by `frontend`, tests by `qa` (a
+  `qa` step comes before the `backend` or `frontend` step it tests); `main` owns docs, plans, `.claude/`, CI and
+  the closing. The last step is always `main` (close). A hook enforces the split, so a plan that gives source work
+  to `main` cannot be carried out.
 - **Validation**: commands and observable results that prove the goal is met. "It works" is not validation.
 - **Rollback**: how to undo, including data and migrations.
 - **Open questions**: every question carries a **suggested answer** and the reason for it, so the human can approve
@@ -48,10 +52,12 @@ gravity: it is where scope, assumptions and risks are decided.
 ## Closing a plan
 
 1. Run every validation item and record failures honestly.
-2. Fill **What changed vs. plan**: deviations, why, and anything deferred.
-3. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
-4. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).
-5. Draft the next plan with `/new-plan` and **stop for approval**.
+2. Run `python3 .claude/hooks/archive_conversation.py --audit <transcripts of this plan's sessions>` and note, in
+   **What changed vs. plan**, the Agent calls by type and the number of shell writes into source.
+3. Fill **What changed vs. plan**: deviations, why, and anything deferred.
+4. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
+5. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).
+6. Draft the next plan with `/new-plan` and **stop for approval**.
 
 ## Template
 
@@ -77,6 +83,10 @@ gravity: it is where scope, assumptions and risks are decided.
 ## Assumptions
 
 ## Steps
+
+1. **qa** – `test:` what the tests cover.
+2. **backend** – `feat:` what the code does.
+3. **main** – run Validation, close and merge.
 
 ## Validation
 

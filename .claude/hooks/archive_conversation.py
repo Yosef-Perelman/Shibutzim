@@ -7,9 +7,14 @@ input from stdin, copies the transcript named by `transcript_path` byte for byte
 the user's messages and Claude's replies in full, one line per tool call, no tool output and no thinking.
 Re-running on the same session overwrites both files, so they always hold the whole session.
 
+Subagent transcripts (`<session>/subagents/agent-*.jsonl` and `.meta.json`, next to the main transcript) are
+copied to `conversations/raw/<date>-<session_id>/subagents/`, and the Markdown lists the subagents invoked.
+
 Other uses:
     python3 archive_conversation.py --backfill          # every transcript of this project
     python3 archive_conversation.py path/to/a.jsonl ... # specific transcripts
+    python3 archive_conversation.py --audit [a.jsonl ...]  # per session: Agent calls by type, and Bash commands
+                                                           # that wrote source through the shell (default: all)
 
 Never blocks Claude Code: any error is printed to stderr and the exit code is always 0.
 Written for the system Python (3.9+), standard library only.
@@ -19,12 +24,16 @@ import os
 import re
 import shutil
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 ARCHIVE_DIR = "conversations"
 RAW_SUBDIR = "raw"
+SUBAGENTS_SUBDIR = "subagents"
+AGENT_TOOLS = {"Agent", "Task"}
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
 # Text the harness injects into user turns that the user did not type.
 INJECTED_BLOCKS = re.compile(
@@ -125,6 +134,8 @@ def user_text(message: dict) -> str:
 def describe_tool_call(block: dict) -> str:
     name = block.get("name", "tool")
     args = block.get("input") or {}
+    if name in AGENT_TOOLS and args.get("subagent_type"):
+        name = f"{name} ({args['subagent_type']})"
     detail = (
         args.get("description")
         or args.get("file_path")
@@ -157,7 +168,57 @@ def assistant_parts(message: dict) -> List[str]:
     return parts
 
 
-def render_markdown(records: List[dict], session_id: str, date: str, event: Optional[dict]) -> str:
+def tool_blocks(records: Iterable[dict]) -> Iterable[dict]:
+    """Every `tool_use` block of the main conversation (not of subagent sidechains), once per tool-use id."""
+    seen = set()
+    for record in records:
+        if record.get("type") != "assistant" or record.get("isSidechain"):
+            continue
+        for block in (record.get("message") or {}).get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("id") not in seen:
+                seen.add(block.get("id"))
+                yield block
+
+
+def agent_calls(records: Iterable[dict]) -> List[dict]:
+    """The `Agent` (formerly `Task`) tool calls of the main conversation."""
+    return [block for block in tool_blocks(records) if block.get("name") in AGENT_TOOLS]
+
+
+def read_subagent_meta(subagents_dir: Path) -> Dict[str, dict]:
+    """`agent-*.meta.json` files keyed by the id of the `tool_use` that spawned the subagent."""
+    found: Dict[str, dict] = {}
+    for meta_file in sorted(subagents_dir.glob("*.meta.json")):
+        try:
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(meta, dict) and meta.get("toolUseId"):
+            found[meta["toolUseId"]] = meta
+    return found
+
+
+def render_subagents(records: List[dict], meta_by_call: Dict[str, dict]) -> List[str]:
+    lines = ["## Subagents invoked", ""]
+    calls = agent_calls(records)
+    if not calls:
+        return lines + ["- none", ""]
+    for call in calls:
+        args = call.get("input") or {}
+        kind = args.get("subagent_type") or "general-purpose"
+        description = " ".join(str(args.get("description") or "").split())
+        model = (meta_by_call.get(call.get("id")) or {}).get("pickedEffortModel")
+        lines.append(f"- **{kind}**" + (f" — {description}" if description else "") + (f" ({model})" if model else ""))
+    return lines + [""]
+
+
+def render_markdown(
+    records: List[dict],
+    session_id: str,
+    date: str,
+    event: Optional[dict],
+    meta_by_call: Optional[Dict[str, dict]] = None,
+) -> str:
     first = next((r for r in records if r.get("type") in ("user", "assistant")), {})
     models = sorted({r["message"].get("model") for r in records if r.get("type") == "assistant"} - {None})
     reason = (event or {}).get("reason") or (event or {}).get("trigger") or ""
@@ -169,6 +230,7 @@ def render_markdown(records: List[dict], session_id: str, date: str, event: Opti
     out.append(f"- **Models:** {', '.join(models) if models else 'unknown'}")
     out.append(f"- **Archived on:** {hook_event}{f' ({reason})' if reason else ''}")
     out.append("")
+    out.extend(render_subagents(records, meta_by_call or {}))
     out.append("_Tool output and thinking are omitted; the raw JSONL in `raw/` holds everything._")
     out.append("")
 
@@ -224,12 +286,96 @@ def archive(transcript: Path, project: Path, event: Optional[dict]) -> Path:
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     shutil.copyfile(transcript, raw_dir / f"{date}-{session_id}.jsonl")
+    source_subagents = transcript.with_suffix("") / SUBAGENTS_SUBDIR
+    meta_by_call: Dict[str, dict] = {}
+    if source_subagents.is_dir():
+        shutil.copytree(source_subagents, raw_dir / f"{date}-{session_id}" / SUBAGENTS_SUBDIR, dirs_exist_ok=True)
+        meta_by_call = read_subagent_meta(source_subagents)
     markdown_path = archive_dir / f"{date}-{session_id}.md"
-    markdown_path.write_text(render_markdown(records, session_id, date, event), encoding="utf-8")
+    markdown_path.write_text(render_markdown(records, session_id, date, event, meta_by_call), encoding="utf-8")
     return markdown_path
 
 
+# --- Audit: was the work delegated, and did anything write source through the shell? -------------------
+
+
+def shell_source_writes(records: List[dict], project: Path) -> int:
+    """Bash commands of the main conversation that wrote under `server/` or `client/src/` (see scope_guard.py)."""
+    import scope_guard
+
+    cwd_of = {}
+    for record in records:
+        if record.get("type") == "assistant" and record.get("cwd"):
+            for block in (record.get("message") or {}).get("content") or []:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    cwd_of[block.get("id")] = record["cwd"]
+
+    count = 0
+    for block in tool_blocks(records):
+        command = (block.get("input") or {}).get("command")
+        if block.get("name") != "Bash" or not isinstance(command, str):
+            continue
+        cwd = Path(cwd_of.get(block.get("id")) or project)
+        try:
+            cwd.resolve().relative_to(project)
+        except ValueError:
+            cwd = project
+        for target in scope_guard.write_targets(command, cwd.resolve()):
+            relative = scope_guard.relative_to_project(target, project)
+            if relative is None or scope_guard.is_generated(relative):
+                continue
+            if not scope_guard.scope_allows("main", relative):  # server/ and client/src/
+                count += 1
+                break
+    return count
+
+
+def audit_session(transcript: Path, project: Path) -> Tuple[str, Counter, Counter]:
+    records = read_records(transcript)
+    blocks = list(tool_blocks(records))
+    names = Counter(block.get("name") for block in blocks)
+    types = Counter(
+        (block.get("input") or {}).get("subagent_type") or "general-purpose"
+        for block in blocks
+        if block.get("name") in AGENT_TOOLS
+    )
+    counts = Counter(
+        agent_calls=sum(types.values()),
+        bash=names["Bash"],
+        edit_write=sum(names[name] for name in EDIT_TOOLS),
+        shell_source_writes=shell_source_writes(records, project),
+    )
+    session = re.sub(r"^\d{4}-\d{2}-\d{2}-", "", transcript.stem)  # archived copies are named <date>-<session>
+    return f"{session_date(records, transcript)} {session[:8]}", counts, types
+
+
+def format_audit_line(label: str, counts: Counter, types: Counter) -> str:
+    kinds = ", ".join(f"{kind}={number}" for kind, number in sorted(types.items()))
+    calls = f"agent_calls={counts['agent_calls']}" + (f" ({kinds})" if kinds else "")
+    return (
+        f"{label}  {calls}  bash={counts['bash']}  edit_write={counts['edit_write']}"
+        f"  shell_source_writes={counts['shell_source_writes']}"
+    )
+
+
+def audit(transcripts: List[Path], project: Path) -> List[str]:
+    rows = sorted((audit_session(path, project) for path in transcripts), key=lambda row: row[0])
+    lines = [format_audit_line(label, counts, types) for label, counts, types in rows]
+    if len(rows) > 1:
+        total, total_types = Counter(), Counter()
+        for _, counts, types in rows:
+            total.update(counts)
+            total_types.update(types)
+        lines.append(format_audit_line("total        ", total, total_types))
+    return lines
+
+
 def main(argv: List[str]) -> None:
+    if argv and argv[0] == "--audit":
+        project = project_dir(None)
+        transcripts = [Path(a) for a in argv[1:]] or sorted(project_transcript_dir(project).glob("*.jsonl"))
+        print("\n".join(audit(transcripts, project)))
+        return
     if argv and argv[0] == "--backfill":
         project = project_dir(None)
         transcripts = sorted(project_transcript_dir(project).glob("*.jsonl"))

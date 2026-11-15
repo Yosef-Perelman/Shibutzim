@@ -25,8 +25,11 @@ starts implementation.
    - **Goal** – the outcome in one paragraph.
    - **Scope** – *In* covers everything in the roadmap row; *Out* names what a reader might expect but won't get.
    - **Assumptions** – state what was verified and what wasn't.
-   - **Steps** – numbered, small, each verifiable and ideally one commit; tests before the code they test; follow
-     [git-rules.md](../../../docs/rules/git-rules.md) commit types.
+   - **Steps** – numbered, small, each verifiable and ideally one commit; follow
+     [git-rules.md](../../../docs/rules/git-rules.md) commit types. Every step is `N. **owner** – text` with owner
+     one of `backend`, `frontend`, `qa`, `main`: server source is `backend`, client source `frontend`, tests `qa`
+     (a `qa` step comes before the `backend` or `frontend` step it tests), docs, plans, `.claude/` and CI `main`.
+     The last step is always `main` (run Validation, close and merge).
    - **Validation** – concrete commands and expected observable results, including the mandatory test matrices
      from [testing-rules.md](../../../docs/rules/testing-rules.md) when the plan touches pay, scheduler or
      endpoints.
@@ -35,8 +38,9 @@ starts implementation.
      could reasonably want to make (dependencies, trade-offs, defaults). Prefer asking here over assuming silently.
    - **What changed vs. plan** – placeholder.
 5. **Update the roadmap**: set the row's status to `in progress` and link the new file.
-6. **Check the draft** against the template: all sections present, every open question has a suggested answer, every
-   validation item is observable, nothing from the roadmap row is missing from *In* or *Out*.
+6. **Check the draft** against the template: all sections present, every open question has a suggested answer,
+   every validation item is observable, nothing from the roadmap row is missing from *In* or *Out*, every step has
+   an owner, no source step is owned by `main`, and the last step is `main`.
 7. **Stop.** Do not commit and do not implement. Reply to the user with: the file path, a three-to-five line summary
    of the scope, and the open questions with their suggested answers, then ask for approval or changes.
 

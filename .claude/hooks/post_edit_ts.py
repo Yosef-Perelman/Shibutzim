@@ -1,71 +1,38 @@
 #!/usr/bin/env python3
 """PostToolUse feedback loop for TypeScript edits under client/.
 
-After an Edit/Write of a `.ts` or `.tsx` file inside `client/`:
-1. `prettier --write <file>`;
-2. `eslint --fix <file>`.
+After an Edit/Write of a `.ts` or `.tsx` file inside `client/`: `prettier --write` and `eslint --fix` on that file
+(see `checks.py`). The file is recorded in `.claude/.hook-state.json` so `post_bash_check.py` does not check it
+again. The type check and the Vitest suite are not run here: they are slow for an every-edit hook, so the
+pre-commit hook runs `npm run typecheck && npm test` instead.
 
-Remaining lint problems are printed to stderr with exit code 2, which Claude Code feeds back to the agent
-(the edit itself has already happened). The type check and the Vitest suite are not run here: they are slow for
-an every-edit hook, so `npm run typecheck && npm test` run before each commit instead (plan 003, open
-question 10). It is a no-op until `client/package.json` exists.
+Remaining problems are printed to stderr with exit code 2, which Claude Code feeds back to the agent (the edit
+itself has already happened). It is a no-op until `client/package.json` exists.
 
 Written for the system Python (3.9+), standard library only.
 """
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 
-TIMEOUT_SECONDS = 60
-MAX_OUTPUT_LINES = 60
-EXTENSIONS = {".ts", ".tsx"}
-SKIPPED_DIRECTORIES = {"node_modules", "dist"}
-
-
-def tail(text: str) -> str:
-    lines = text.strip().splitlines()
-    return "\n".join(lines[-MAX_OUTPUT_LINES:])
-
-
-def run(command: list, cwd: Path):
-    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+import checks
 
 
 def main() -> None:
-    event = json.load(sys.stdin)
-    raw_path = (event.get("tool_input") or {}).get("file_path", "")
-    path = Path(raw_path)
-    if path.suffix not in EXTENSIONS:
-        return
-
-    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR") or event.get("cwd") or ".").resolve()
-    client_dir = project_dir / "client"
-    path = path.resolve()
-    if client_dir not in path.parents or not (client_dir / "package.json").exists():
-        return
-    if SKIPPED_DIRECTORIES & set(path.relative_to(client_dir).parts):
-        return
-
-    bin_dir = client_dir / "node_modules" / ".bin"
-    prettier, eslint = bin_dir / "prettier", bin_dir / "eslint"
-    if not prettier.exists() or not eslint.exists():
-        print("post-edit hook: client dependencies are missing, so Prettier and ESLint did not run. "
-              "Run `npm install` in client/.", file=sys.stderr)
-        sys.exit(2)
-
-    problems = []
     try:
-        format_result = run([str(prettier), "--write", str(path)], client_dir)
-        if format_result.returncode != 0:
-            problems.append("prettier could not format the file:\n" + tail(format_result.stdout + format_result.stderr))
-        lint = run([str(eslint), "--fix", str(path)], client_dir)
-        if lint.returncode != 0:
-            problems.append("eslint found problems it could not fix:\n" + tail(lint.stdout + lint.stderr))
-    except subprocess.TimeoutExpired:
-        problems.append(f"Prettier or ESLint exceeded {TIMEOUT_SECONDS}s.")
+        event = json.load(sys.stdin)
+    except ValueError:
+        return
+    raw_path = (event.get("tool_input") or {}).get("file_path", "")
+    project = checks.project_dir(event)
+    path = Path(raw_path) if Path(raw_path).is_absolute() else project / raw_path
+    path = path.resolve()
+    if not raw_path or not checks.is_client_source(project, path):
+        return
 
+    checks.start_budget()
+    problems = checks.check_client(project, [path])
+    checks.record(project, [path])
     if problems:
         print("\n\n".join(problems), file=sys.stderr)
         sys.exit(2)
