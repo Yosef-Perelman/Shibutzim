@@ -46,7 +46,15 @@
       "Bash(rm -rf *)",
       "Bash(rm -fr *)",
       "Bash(rm -Rf *)",
-      "Bash(rm -r -f *)"
+      "Bash(rm -r -f *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit * --no-verify *)",
+      "Bash(git commit * --no-verify)",
+      "Bash(git commit -n *)",
+      "Bash(git commit * -n *)",
+      "Bash(git commit * -n)",
+      "Bash(git commit -n*)",
+      "Bash(git commit * -n*)"
     ]
   },
   "hooks": {
@@ -115,6 +123,17 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/archive_conversation.py\"",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_setup.py\"",
+            "timeout": 15
           }
         ]
       }
