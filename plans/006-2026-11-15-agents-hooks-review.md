@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | in progress |
+| **Status** | done |
 | **Date** | 2026-11-15 |
 | **Related docs** | [AGENTS.md](../AGENTS.md), [planning-rules](../docs/rules/planning-rules.md), [git-rules](../docs/rules/git-rules.md), [testing-rules](../docs/rules/testing-rules.md), [README](../README.md) §"How this was built with AI" |
 | **Roadmap** | plan 006 of 007 |
@@ -204,8 +204,6 @@ answered as suggested.
 
 ## What changed vs. plan
 
-*Interim notes; the plan is not closed (see "What is left").*
-
 - **Scope reduced after implementation (2026-11-15).** Yosef removed one item: a read-only review subagent, with
   its own Bash guard, a review step at the end of every plan and a review section in the template. It ran for a
   long time and cost many tokens. Its agent file, guard, tests, rule-table row and every doc mention were deleted;
@@ -243,9 +241,9 @@ answered as suggested.
   | 2026-11-12 57060ed8 | 0 | 165 | 53 | 14 |
   | **Plans 000–005** | **0** | **704** | **64** | **204** |
 
-  This plan's session (`2ce8ac82`): qa 2, backend 1 and general-purpose 1 Agent calls (plus one call of the
-  removed agent type that never started); 4 shell-write attempts, all blocked by the guard; no change under
-  `server/` or `client/` on the branch.
+  This plan's implementing session (`2ce8ac82`): qa 2, backend 1 and general-purpose 1 Agent calls (plus one call
+  of the removed agent type that never started); 4 shell-write attempts, all blocked by the guard; no change
+  under `server/` or `client/` on the branch. The drafting session (`965b6377`): Explore 2, qa 1, no shell writes.
 - **Validation results so far.**
   - Hook tests pass.
   - Live, main session: `cat > server/app/x.py <<EOF` blocked and no file created; `Edit` of `server/app/main.py`
@@ -263,7 +261,8 @@ answered as suggested.
   - `archive_conversation.py --audit` lists agent types and shell writes; the session Markdown has "Subagents
     invoked".
 
-## What is left
+## Closing note
 
-1. Close the plan when Yosef says so: final "What changed vs. plan" line, status `done`, update
-   `plans/ROADMAP.md`, commit `plan: close plan 006`, merge into `main` with a merge commit.
+Closed 2026-11-15 after Yosef's go. Final checks on the branch: hook tests 77 pass, `uv run ruff check .` clean,
+server tests 1076 pass, client lint and typecheck pass. The deny rules for the extra commit-skipping forms were not
+added and stay for Yosef to decide.
