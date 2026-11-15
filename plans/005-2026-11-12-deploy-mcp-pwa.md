@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | in progress |
+| **Status** | done |
 | **Date** | 2026-11-12 |
 | **Related docs** | [architecture.md](../docs/architecture.md) §3, §4, §8, §10, §11 · [product-definition.md](../docs/product-definition.md) §5.5, §7 · [coding-rules](../docs/rules/coding-rules.md) · [testing-rules](../docs/rules/testing-rules.md) · [git-rules](../docs/rules/git-rules.md) · [ui-rules](../docs/rules/ui-rules.md) · [design-system](../docs/design-system.md) |
 | **Roadmap** | plan 005 of 005 |
@@ -313,7 +313,7 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 
 ## What changed vs. plan
 
-**Outcome (2026-11-12).** Every step is built, merged into `main` with a merge commit and **deployed**: the first push to `main` ran the checks and the deploy job, and the service answers at https://shibutzim-a7t72ct4pa-ew.a.run.app. Server: 1,076 tests; client: 220 tests; CI is green on all jobs. The plan stays `in progress` only for the checks that need a person with a phone or a browser, and for rotating two credentials that were exposed (see Still open).
+**Outcome (2026-11-15).** Every step is built, merged into `main` with a merge commit and **deployed**, and the plan is closed. The first push to `main` ran the checks and the deploy job, and the service answers at https://shibutzim-a7t72ct4pa-ew.a.run.app. Server: 1,076 tests; client: 220 tests; CI is green on all jobs. Yosef added four screenshots of the live screens to the README. A few checks that need a phone or a developer-tools session were not done, and the two credentials that appeared in the chat were not rotated, by Yosef's decision; both are listed under Deferred.
 
 ### Deviations
 
@@ -343,23 +343,23 @@ Decided by Yosef on 2026-11-12 while reviewing the draft: the key is scrubbed fr
 | # | Result |
 |---|---|
 | 1 | The branch reads: plan, test, feat (users), feat (Team screen), test, feat (static), fix (HEAD), chore (Docker), chore (CI), docs (runbook), chore (deploy), chore (mcp dependency), test, feat (MCP), chore (PWA), fix (dockerignore), feat (demo switch), docs, docs (README). Close to the planned order; the extras are in Deviations. |
-| 2 | Searching all history for the first characters of the old key finds nothing, `.env.example` at `HEAD` ends `GEMINI_API_KEY=`, and `main` was pushed and accepted by GitHub. **The old key is not revoked: it is still in use as the deployed key and must be replaced** (see Still open). |
+| 2 | Searching all history for the first characters of the old key finds nothing, `.env.example` at `HEAD` ends `GEMINI_API_KEY=`, and `main` was pushed and accepted by GitHub. **The old key is not revoked: it is still in use as the deployed key and stays in place by Yosef's decision** (see Deferred). |
 | 3 | `uv run pytest -q`: 1,076 passed; `ruff check`, `ruff format --check` and `alembic check` clean. Client lint, Prettier, typecheck, 220 tests and `npm run build` pass. |
-| 3a | Through the rebuilt container: no token 401, employee 403, manager 201, the new person logs in 200, the same email again `email_already_used`, deactivation 200, then the person's token and login both 401, the manager deactivating themself `cannot_deactivate_self`, reactivation 200. The temporary user was deleted afterwards. **The Team screen was not opened in a browser** (no browser tool was available); component tests cover the list, add, field errors, confirmation, cancel and reactivation. |
+| 3a | Through the rebuilt container: no token 401, employee 403, manager 201, the new person logs in 200, the same email again `email_already_used`, deactivation 200, then the person's token and login both 401, the manager deactivating themself `cannot_deactivate_self`, reactivation 200. The temporary user was deleted afterwards. In a browser, Yosef's screenshot of the Team screen at desktop width shows the six people with role, rate and status, the \"You\" mark, no button on the manager's own row, and the Add person button. Adding and deactivating by hand in the browser was **not** reported; component tests cover them. |
 | 4 | `docker build` succeeds. `docker compose --profile app up`: `/api/health` is `{"status":"ok"}`; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; hashed assets are `immutable`; `/api/nope` is a JSON 404; a missing asset is 404; the manifest is `application/manifest+json`; the container runs as a non-root user; a demo login works. The login screen in a browser at port 8080 was **not** opened. |
 | 5 | On pull request 1 (all three jobs) and then on the push of the merge to `main`: server, client and image are green, and the deploy job ran. The first pull request run failed on the missing `setup-uv` tag, fixed by the next commit. |
-| 6 | The deploy job is green. `GET /api/health` answers 200 in about 0.2 s; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; the manifest is `application/manifest+json`; a manager logs in over HTTPS and lists the six seeded people; revision `shibutzim-00001` runs as the runtime service account. The assistant answered \"How is overtime paid?\" for an employee with the handbook's Overtime section as its citation, after one provider answer of \"high demand\" (503) that cleared on retry. Signing in through the browser UI, My shifts and Pay on the live address are **open** (Yosef). |
+| 6 | The deploy job is green. `GET /api/health` answers 200 in about 0.2 s; `HEAD /me/shifts` is 200 `text/html` with `no-cache`; the manifest is `application/manifest+json`; a manager logs in over HTTPS and lists the six seeded people; revision `shibutzim-00001` runs as the runtime service account. The assistant answered \"How is overtime paid?\" for an employee with the handbook's Overtime section as its citation, after one provider answer of \"high demand\" (503) that cleared on retry. Yosef's screenshots show the signed-in manager (Schedule, Team) and employee (Availability, Assistant, with an answer about last month's pay and \"Looked at: your pay\"). |
 | 7 | Over real stdio against the development database: a manager's token lists 4 tools, an employee's lists 4; `get_team_hours` as the manager and `get_my_hours` as the employee return results; the employee calling a manager tool gets `isError` with `forbidden`; the four log rows are `ok`, `ok`, `ok`, `refused`. `get_my_hours` equals `GET /api/pay` in a test, and the draft proposal leaves `schedules` unchanged in a test. A missing or wrong token exits with code 2 and a message. |
 | 8 | `grep -rn "app.repositories\|app.models" server/app/mcp` prints nothing; the router, schema and pure-module greps are silent. |
-| 9 | **Partly.** `npm run build` writes the manifest, the service worker, `registerSW.js` and the icons; the worker has one route (the precached shell) with `/api` in the navigation denylist and no runtime caching; the icons were looked at. Chrome DevTools on the deployed site and "Add to Home Screen" on a phone are **open**. |
-| 10 | Two image builds showed the demo email present with the variable and absent without it. The deployed bundle contains the demo email once, so the live login screen offers the accounts; the screen itself is **open** (Yosef). |
+| 9 | **Partly.** `npm run build` writes the manifest, the service worker, `registerSW.js` and the icons, and the live site serves them with the right types; the worker has one route (the precached shell) with `/api` in the navigation denylist and no runtime caching; the icons were looked at. The Chrome DevTools manifest check, a request in the Network panel never served by the service worker, and \"Add to Home Screen\" on a phone were **not done**. |
+| 10 | Two image builds showed the demo email present with the variable and absent without it, and the deployed bundle contains the demo email once. The live login screen itself was **not** looked at; the screenshots show the signed-in screens only. |
 | 11 | The agent ran the runbook's commands on Yosef's logged-in `gcloud` and `gh`, with Yosef doing the Supabase project and the two secrets. Corrections found and written back: the budget currency and filter, the region pairing and the Supabase options. Yosef confirmed the Data API is off. Everything in the runbook up to the first deployment worked. |
-| 12 | Every relative link in the README and the changed docs resolves, and the live address is now in the README. It has not been rendered on GitHub by a person; the screenshots and GIF are still marked for the author. |
+| 12 | Every relative link in the README and the changed docs resolves. The README now shows the live address and four screenshots (schedule board, Team, Availability, Assistant). It was not rendered on GitHub by a person, and there is no GIF. |
 
-### Still open
+### Deferred
 
-1. **Rotate the Gemini key**: create a new key in AI Studio, add it as a new version of the `gemini-api-key` secret, deploy again (a push, or `gh workflow run ci --ref main`) and revoke the old one.
-2. **Rotate the database password**: reset it in Supabase, store it as a new version of `database-url`, deploy again and destroy the old version.
-3. **Look at the live site** in a browser at desktop width and at 375 px: login with a demo account, the Team screen, My shifts, Pay and the Assistant; "Add to Home Screen" on a phone; DevTools Application tab shows no manifest errors and `/api` calls never come from the service worker.
-4. **Screenshots and a GIF** for the README, from the live site.
-5. When 1 to 3 are done, set this plan to `done` and update `plans/ROADMAP.md`. There is no plan 006; the roadmap is complete.
+- **Credential rotation, by Yosef's decision.** The Gemini key (the one that was committed in the early history) and the database password (the one pasted in the chat) are the deployed secrets and remain exposed. To rotate later: add a new version of `gemini-api-key` or `database-url`, redeploy with `gh workflow run ci --ref main`, then revoke the old key and destroy the old version.
+- **Phone and developer-tools checks**: layout at 375 px on the live site, "Add to Home Screen", the DevTools manifest check and the service worker not serving `/api`.
+- **The live login screen** offering the demo accounts, and adding and deactivating a person in the browser.
+- **A demo GIF.** The schedule screenshot shows a week without a schedule; clicking Generate on the live site and capturing that would show the solver's result.
+- **Supabase pauses a free project after a week without traffic**, which makes the first request slow until it wakes.
