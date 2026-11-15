@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved |
+| **Status** | in progress |
 | **Date** | 2026-11-15 |
 | **Related docs** | [AGENTS.md](../AGENTS.md), [planning-rules](../docs/rules/planning-rules.md), [git-rules](../docs/rules/git-rules.md), [testing-rules](../docs/rules/testing-rules.md), [README](../README.md) §"How this was built with AI" |
 | **Roadmap** | plan 006 of 007 |
