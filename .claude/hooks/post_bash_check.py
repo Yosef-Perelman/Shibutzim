@@ -21,8 +21,8 @@ def main() -> None:
         event = json.load(sys.stdin)
     except ValueError:
         return
-    if (event.get("tool_response") or {}).get("interrupted") or event.get("agent_type") == "reviewer":
-        return  # the reviewer is read-only: a check would rewrite files it did not touch
+    if (event.get("tool_response") or {}).get("interrupted"):
+        return
     project = checks.project_dir(event)
     changed = checks.changed_files(project)
     python_files = [p for p in changed if checks.is_server_python(project, p)]

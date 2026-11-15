@@ -38,11 +38,11 @@ gravity: it is where scope, assumptions and risks are decided.
 - **Assumptions**: everything taken as true without verification. A wrong assumption is the most common cause of a
   wrong implementation.
 - **Steps**: numbered, each small enough to verify on its own and ideally one commit. Tests come before the code
-  they test. Every step names its **owner**: `N. **owner** – text`, with owner one of `backend`, `frontend`, `qa`,
-  `reviewer` or `main`. Source under `server/` is changed by `backend`, under `client/src/` by `frontend`, tests by
-  `qa` (a `qa` step comes before the `backend` or `frontend` step it tests); `main` owns docs, plans, `.claude/`,
-  CI and the closing. The last two steps are always `reviewer` (review the branch) and `main` (close). A hook
-  enforces the split, so a plan that gives source work to `main` cannot be carried out.
+  they test. Every step names its **owner**: `N. **owner** – text`, with owner one of `backend`, `frontend`, `qa`
+  or `main`. Source under `server/` is changed by `backend`, under `client/src/` by `frontend`, tests by `qa` (a
+  `qa` step comes before the `backend` or `frontend` step it tests); `main` owns docs, plans, `.claude/`, CI and
+  the closing. The last step is always `main` (close). A hook enforces the split, so a plan that gives source work
+  to `main` cannot be carried out.
 - **Validation**: commands and observable results that prove the goal is met. "It works" is not validation.
 - **Rollback**: how to undo, including data and migrations.
 - **Open questions**: every question carries a **suggested answer** and the reason for it, so the human can approve
@@ -51,16 +51,13 @@ gravity: it is where scope, assumptions and risks are decided.
 
 ## Closing a plan
 
-1. Run the `reviewer` agent on the branch. Record its findings and what was done about each under **Review**; fix
-   every `blocker` (through the step's owner), then run the reviewer again. The plan does not close with an open
-   blocker.
-2. Run every validation item (again, after any fix) and record failures honestly.
-3. Run `python3 .claude/hooks/archive_conversation.py --audit <transcripts of this plan's sessions>` and note, in
+1. Run every validation item and record failures honestly.
+2. Run `python3 .claude/hooks/archive_conversation.py --audit <transcripts of this plan's sessions>` and note, in
    **What changed vs. plan**, the Agent calls by type and the number of shell writes into source.
-4. Fill **What changed vs. plan**: deviations, why, and anything deferred.
-5. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
-6. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).
-7. Draft the next plan with `/new-plan` and **stop for approval**.
+3. Fill **What changed vs. plan**: deviations, why, and anything deferred.
+4. Set status `done`, update `plans/ROADMAP.md`, commit on the plan branch (`plan: close plan NNN`).
+5. Merge the plan branch into `main` locally with a merge commit (see [git-rules.md](git-rules.md#branches)).
+6. Draft the next plan with `/new-plan` and **stop for approval**.
 
 ## Template
 
@@ -89,8 +86,7 @@ gravity: it is where scope, assumptions and risks are decided.
 
 1. **qa** – `test:` what the tests cover.
 2. **backend** – `feat:` what the code does.
-3. **reviewer** – review the branch against this plan and the docs.
-4. **main** – run Validation, close and merge.
+3. **main** – run Validation, close and merge.
 
 ## Validation
 
@@ -100,10 +96,6 @@ gravity: it is where scope, assumptions and risks are decided.
 
 1. **Question?**
    → *Suggested:* answer, because reason.
-
-## Review
-
-*(filled in by the reviewer step: findings as blocker / should / nit with file:line, and what was done about each)*
 
 ## What changed vs. plan
 

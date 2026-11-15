@@ -10,7 +10,6 @@ One rules table decides, per agent, which paths it may write:
 | `backend`                | `server/` and `docs/`                                             |
 | `frontend`               | `client/` and `docs/`                                             |
 | `qa`                     | `server/tests/`, `server/evals/`, client `*.test/*.spec` files    |
-| `reviewer`               | nothing                                                           |
 
 Edit/Write/MultiEdit/NotebookEdit are checked by path. A Bash command is parsed (regex and `shlex`, not a real
 shell) for writes: redirects, `tee`, `sed -i`, `perl -i`, `mv`/`cp`/`rsync`/`install`/`ln`/`touch`/`mkdir`/`rm`,
@@ -102,8 +101,6 @@ def is_escape_hatch(relative: PurePosixPath) -> bool:
 
 def scope_allows(role: str, relative: PurePosixPath) -> bool:
     """May `role` write `relative` (a path inside the project)?"""
-    if role == "reviewer":
-        return False
     if is_generated(relative):
         return True
     if role == "backend":
@@ -131,11 +128,6 @@ def owner_hint(relative: Optional[PurePosixPath]) -> str:
 def explain(role: str, shown: str, relative: Optional[PurePosixPath], via_shell: bool) -> str:
     how = "a shell write into" if via_shell else "an edit of"
     edit_hint = " Source is changed with Edit/Write, not with shell commands." if via_shell else ""
-    if role == "reviewer":
-        return (
-            f"Blocked: {how} {shown}. The reviewer agent is read-only: report the finding with file:line "
-            "and let the main session or the owning agent fix it."
-        )
     if role == "qa":
         return (
             f"Blocked: {how} {shown}. The qa agent may only write under server/tests/, server/evals/ or "
@@ -613,8 +605,6 @@ def violations(role: str, paths: List[Path], project: Path) -> List[Tuple[str, O
     for path in paths:
         relative = relative_to_project(path, project)
         if relative is None:
-            if role == "reviewer":
-                found.append((str(path), None))
             continue
         if not scope_allows(role, relative):
             found.append((relative.as_posix(), relative))

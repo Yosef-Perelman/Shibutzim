@@ -224,9 +224,8 @@ starts from a blank prompt: it starts from files that say what to build, how, an
    files, and skipping it is denied. Force-push and `rm -rf` are denied, and every session is archived with its
    subagent transcripts. The hooks have their own tests.
 5. **Subagents.** [`.claude/agents/`](.claude/agents), each with a defined model: `backend` (server code only),
-   `frontend` (client code only) and `qa` (writes tests and evals, read-only on source) on Sonnet, and a read-only
-   `reviewer` on Opus that checks every plan branch against its plan and the docs before it merges. Every plan step
-   names its owner, the scope guard stops the main session from writing source itself, and an audit over the archived
+   `frontend` (client code only) and `qa` (writes tests and evals, read-only on source), all on Sonnet. Every plan
+   step names its owner, the scope guard stops the main session from writing source itself, and an audit over the archived
    sessions shows how much work was delegated and whether anything slipped through the shell.
 6. **Skills.** [`.claude/skills/`](.claude/skills): `new-plan` (draft the next plan from the roadmap and stop for
    approval), `new-endpoint` (tests first, then schema, repository, service, router), `add-pay-rule` (a fixed

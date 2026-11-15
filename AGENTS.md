@@ -30,8 +30,8 @@ and will reload them.
 
 No implementation before a written plan the user approved ([planning-rules.md](docs/rules/planning-rules.md)).
 
-> When a plan's validation passes and the `reviewer` agent has no open blocker (findings under the plan's **Review**):
-> set its status to `done` (with a short "what changed vs. plan" note and the `--audit` numbers), update
+> When a plan's validation passes: set its status to `done` (with a short "what changed vs. plan" note and the
+> `--audit` numbers), update
 > `plans/ROADMAP.md`, commit on the plan branch, **merge the branch into `main` locally with a merge commit**
 > (`git switch main && git merge --no-ff plan/NNN-short-name`), then use `/new-plan` to draft the next plan from
 > the roadmap and **stop and wait for the user's approval** before writing any code.
@@ -69,7 +69,7 @@ Enforced by tooling (`.claude/settings.json` and `.claude/hooks/`):
 - **Who may write where** is one table in `.claude/hooks/scope_guard.py`, applied to Edit/Write and to Bash writes
   (redirects, heredocs, `tee`, `sed -i`, `mv`, inline `python3 -c` scripts): the main session may not write under
   `server/` or `client/src/`; `backend` writes `server/` and `docs/`, `frontend` writes `client/` and `docs/`, `qa`
-  writes only tests and evals, `reviewer` writes nothing. A blocked call says which agent to use.
+  writes only tests and evals. A blocked call says which agent to use.
 - A committed git pre-commit hook (`.githooks/pre-commit`) runs ruff and pytest when `server/` is staged, and lint,
   typecheck, Prettier and the client tests when `client/` is staged, and the hook tests when `.claude/hooks/` is
   staged. A deletion counts as a change. It needs `git config core.hooksPath .githooks`
@@ -111,7 +111,6 @@ Pay tests · scheduler tests · authorization in services · the docs and plans 
 | `backend` | subagent | `claude-sonnet-5-5` | server code only (`server/`) |
 | `frontend` | subagent | `claude-sonnet-5-5` | client code only (`client/`) |
 | `qa` | subagent | `claude-sonnet-5-5` | writing and running tests and evals; read-only on source |
-| `reviewer` | subagent | `claude-opus-5-5` | read-only review of a plan branch against its plan and the docs; the last step of every plan before it closes |
 | `/new-plan` | skill | – | drafting the next plan from the roadmap |
 | `/new-endpoint` | skill | – | adding a REST endpoint: tests first (401/403 matrix), schema, repository, service, router |
 | `/add-pay-rule` | skill | – | adding a pay rule with its five-case matrix; `dry run` lists the work and stops |

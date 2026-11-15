@@ -287,19 +287,5 @@ class QaTests(ScopeGuardTestCase):
         self.assertBlocked(self.bash("echo x > plans/x.md", agent="qa"))
 
 
-class ReviewerTests(ScopeGuardTestCase):
-    def test_reviewer_cannot_edit_anything(self):
-        self.assertBlocked(self.edit("docs/x.md", agent="reviewer"), "reviewer")
-        self.assertBlocked(self.edit("server/tests/x.py", agent="reviewer", tool="Write"))
-
-    def test_reviewer_cannot_write_by_shell(self):
-        self.assertBlocked(self.bash("echo x >> docs/x.md", agent="reviewer"))
-        self.assertBlocked(self.bash("echo x > /tmp/x", agent="reviewer"))
-
-    def test_reviewer_may_run_read_only_commands(self):
-        self.assertAllowed(self.bash("git diff main...HEAD", agent="reviewer"))
-        self.assertAllowed(self.bash("git log --oneline | head -5", agent="reviewer"))
-
-
 if __name__ == "__main__":
     unittest.main()

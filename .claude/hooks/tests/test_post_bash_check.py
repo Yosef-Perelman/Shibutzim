@@ -139,13 +139,6 @@ class ServerChecksTests(PostBashTestCase):
         self.assertIn("did not finish in time", stderr)
         self.assertNotIn("Traceback", stderr)
 
-    def test_a_reviewer_bash_call_never_triggers_a_check(self):
-        self.write("server/app/a.py")
-        event = self.bash_event()
-        event["agent_type"] = "reviewer"
-        code, _ = run_hook("post_bash_check.py", event, self.project, self.env)
-        self.assertEqual((code, self.calls()), (0, []))
-
     def test_malformed_input_is_a_quiet_no_op(self):
         import subprocess as sp, sys
         from hook_helpers import HOOKS_DIR
