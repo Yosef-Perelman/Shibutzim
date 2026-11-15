@@ -52,7 +52,7 @@ mapping code and one vocabulary for people and agents.
 | **Shift generation** | create the week's missing shifts from the active templates; running it again adds only what is missing | `POST /api/shifts/generate` (managers) · `shift_service.generate_shifts` |
 | **Availability** | an employee's answer for one shift | `Availability` · `availabilities` · `GET`, `PUT /api/availabilities` |
 | **Availability lock** | employees can no longer answer for a week once a schedule exists for it or the week is over; managers never are locked | `availability_locked` |
-| **Availability status** | `available` \| `preferred` \| `unavailable`; a missing answer counts as `unavailable` | `AvailabilityStatus` enum · `availabilities.status` |
+| **Availability status** | `available` \| `preferred` \| `unavailable`; a missing answer counts as `available`; opting out is explicit | `AvailabilityStatus` enum · `availabilities.status` |
 | **Schedule** | all assignments of one week, with a status | `Schedule` · `schedules` · `/api/schedules/{week_start}` |
 | **Schedule status** | `draft` (manager only) \| `published` (visible to employees) | `ScheduleStatus` enum · `schedules.status` |
 | **Assignment** | employee X is planned for shift Y | `Assignment` · `assignments` |
@@ -69,7 +69,7 @@ mapping code and one vocabulary for people and agents.
 | **Max shifts per week** | per-employee cap; default 5 | `SchedulingRules.max_shifts_per_week` |
 | **Scheduling rules** | all configuration the solver needs: minimum rest, max shifts per week, search budget; from `SCHEDULER_*` environment variables | `SchedulingRules` · `Settings.scheduling_rules` |
 | **Schedule result** | solver output: assignments, score, unfilled slots with reasons, steps used | `ScheduleResult` |
-| **Score** | the solver's objective: positions filled first, then `preferred_count × 120 − hours spread` (spread in minutes between the most and least hours among employees who answered) | `Score` · `scoring.PREFERRED_WEIGHT` |
+| **Score** | the solver's objective: positions filled first, then `preferred_count × 120 − hours spread` (spread in minutes between the most and least hours among the candidates: everyone active who is not marked `unavailable`) | `Score` · `scoring.PREFERRED_WEIGHT` |
 | **Unfilled slot** | the missing positions of one shift (`required` minus `assigned`), with why each other employee could not take it | `UnfilledSlot` · `unfilled` in the generate response |
 | **Exclusion** | one employee excluded from one shift by one hard constraint (`availability`, `overlap`, `min_rest`, `max_shifts`, `blocked`), naming the conflicting shift when there is one | `Exclusion` · `Constraint` |
 | **Explanation** | the sentence for an unfilled slot, e.g. "Tuesday 07:00 needs 3, only 2 available; Dana excluded by minimum rest" | `scheduler.explain.explain` · `sentence` |
@@ -107,7 +107,7 @@ mapping code and one vocabulary for people and agents.
 |---|---|---|
 | **Design system** | the written visual rules (colors, type, spacing, radius, component do's and don'ts) the Mantine theme implements | `docs/design-system.md` · `client/src/theme.ts` |
 | **Style preview** | a development-only page that shows every token and component state of the design system | `/design` · `features/design/StylePreview.tsx` |
-| **Schedule board** | the manager's week: shifts by day, coverage, generate, edit, publish | `/manager/schedule` · `features/manager/ScheduleBoard.tsx` |
+| **Schedule board** | the manager's week: shifts by day, coverage, generate, edit, publish; opens on the current week, "Next week" is one click, and `?week=<Sunday>` opens another week | `/manager/schedule` · `/manager/schedule?week=YYYY-MM-DD` · `features/manager/ScheduleBoard.tsx` |
 | **Coverage badge** | "assigned / required" on a shift: green when full, red while short | `CoverageBadge` |
 | **Last generate panel** | the solver's report shown after Generate: unfilled shifts in its own words, score, and whether the search finished | `UnfilledPanel` · `ScheduleStore.lastRun` |
 | **Action result** | what a user-triggered store action returns: ok with the server's warnings, or a blocking error with its code and message | `ActionResult` |
@@ -138,7 +138,7 @@ mapping code and one vocabulary for people and agents.
 | **Eval** | a fixed question with expected tool calls, expected facts and required citation | `server/evals/` · `python -m evals.run` |
 | **Eval budget** | the call cap and the minimum gap between provider calls that keep an eval run inside the provider's quota | `BudgetedLLM` · `--max-calls`, `--interval` |
 | **Assistant unavailable** | the assistant is off: no API key, or the provider failed or timed out; every other endpoint keeps working | `503 assistant_unavailable` · `ServiceUnavailable` |
-| **Assistant screen** | the chat for every signed-in person, with example questions, citations and the proposal card | `/me/assistant` · `features/assistant/AssistantScreen.tsx` · `AssistantStore` |
+| **Assistant screen** | the chat for every signed-in person, with example questions, citations and the proposal card; the conversation is memory only and cleared on sign-out, Demo-user switch, expiry and **New conversation** | `/me/assistant` · `features/assistant/AssistantScreen.tsx` · `AssistantStore` |
 
 ## 3. Time vocabulary
 
