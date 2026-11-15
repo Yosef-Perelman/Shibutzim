@@ -13,8 +13,10 @@ Workflow details: [AGENTS.md](../AGENTS.md#plan-to-plan-workflow) and
 | **003** | done | [003-2026-11-11-design-system-client.md](003-2026-11-11-design-system-client.md) | **Design system first**: Yosef's reference screenshots (local, git-ignored, in `design/references/`) → `docs/design-system.md` (colors, typography, spacing, radius, component do's and don'ts) + Mantine theme + a static style preview Yosef approves before any screen. Then the client: login + role switch, my shifts, availability form, manager schedule board, pay page (React + TS + MobX) |
 | **004** | done | [004-2026-11-11-assistant-handbook-evals.md](004-2026-11-11-assistant-handbook-evals.md) | Assistant: agent loop, tools, confirmation flow, tool-call logging, handbook RAG, evals |
 | **005** | done | [005-2026-11-12-deploy-mcp-pwa.md](005-2026-11-12-deploy-mcp-pwa.md) | Dockerfile + GitHub Actions (lint + tests on PR, deploy) → **GCP Cloud Run** (DB stays managed: Supabase / Neon); **MCP server** (official Python SDK / FastMCP, exposing the same services – "same core, two interfaces: REST and MCP"); PWA |
+| **006** | in progress | [006-2026-11-15-agents-hooks-review.md](006-2026-11-15-agents-hooks-review.md) | Make the agents and hooks real: a Bash-aware scope guard per agent, post-Bash ruff/tests, a committed `.githooks/pre-commit`, a subagent audit in the archive hook, `model:` per agent, a read-only `reviewer` agent that checks every plan branch before merge, and an owner per step in the plan template |
+| **007** | todo | [007-2026-11-15-demo-privacy-availability.md](007-2026-11-15-demo-privacy-availability.md) | Two more demo employees in the seed; the Schedule board opens on the current week (`?week=` links); assistant conversations are per user and cleared on sign-out, Demo-user switch, expiry and New conversation; no answer counts as `available` (docs, scheduler and explanations, `who_is_available`, availability form, seed, evals) |
 
-Plan 005 is part of the roadmap, not optional. All plans are done; the roadmap is complete.
+Plans 000–005 are done; 006 is in progress and 007 follows it.
 
 ## Skills built along the way
 
