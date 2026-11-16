@@ -261,7 +261,8 @@ class BackendFrontendTests(ScopeGuardTestCase):
     def test_frontend_may_write_client_but_not_server(self):
         self.assertAllowed(self.edit("client/src/App.tsx", agent="frontend"))
         self.assertAllowed(self.edit("client/package.json", agent="frontend"))
-        self.assertAllowed(self.edit("docs/design-system.md", agent="frontend"))
+        self.assertAllowed(self.edit("docs/glossary.md", agent="frontend"))
+        self.assertAllowed(self.edit("design/design-system.md", agent="frontend"))
         self.assertBlocked(self.edit("server/app/x.py", agent="frontend"), "backend")
         self.assertBlocked(self.bash("echo x > server/app/x.py", agent="frontend"))
 

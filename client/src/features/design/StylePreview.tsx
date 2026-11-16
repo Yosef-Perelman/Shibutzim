@@ -501,7 +501,7 @@ function OverlaySection() {
         </Stack>
       </Modal>
       <Alert color="info" title="Reading this page" icon={<IconCoin size={18} />}>
-        Check it at 375 px (phone) and 1280 px (desktop). Reference: docs/design-system.md.
+        Check it at 375 px (phone) and 1280 px (desktop). Reference: design/design-system.md.
       </Alert>
     </Section>
   );

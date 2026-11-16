@@ -1,4 +1,4 @@
-// The Mantine theme. It implements docs/design-system.md; change that document first.
+// The Mantine theme. It implements design/design-system.md; change that document first.
 import {
   Button,
   Card,

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | done |
 | **Date** | 2026-11-11 |
-| **Related docs** | [product-definition.md](../docs/product-definition.md) §5.5, §6.2, §7 · [architecture.md](../docs/architecture.md) §3, §4, §6.4–§6.6, §7–§9, §11 · [glossary.md](../docs/glossary.md) "Assistant", "Scheduling" · rules: [coding](../docs/rules/coding-rules.md) ("Assistant code"), [error-handling](../docs/rules/error-handling-rules.md), [database](../docs/rules/database-rules.md), [testing](../docs/rules/testing-rules.md), [ui](../docs/rules/ui-rules.md), [design-system](../docs/design-system.md), [git](../docs/rules/git-rules.md) · subagents: backend, frontend, qa · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
+| **Related docs** | [product-definition.md](../docs/product-definition.md) §5.5, §6.2, §7 · [architecture.md](../docs/architecture.md) §3, §4, §6.4–§6.6, §7–§9, §11 · [glossary.md](../docs/glossary.md) "Assistant", "Scheduling" · rules: [coding](../docs/rules/coding-rules.md) ("Assistant code"), [error-handling](../docs/rules/error-handling-rules.md), [database](../docs/rules/database-rules.md), [testing](../docs/rules/testing-rules.md), [ui](../docs/rules/ui-rules.md), [design-system](../design/design-system.md), [git](../docs/rules/git-rules.md) · subagents: backend, frontend, qa · skill: [new-endpoint](../.claude/skills/new-endpoint/SKILL.md) |
 | **Roadmap** | plan 004 of 005 |
 | **Branch** | plan/004-assistant-handbook-evals |
 

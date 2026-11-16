@@ -37,16 +37,16 @@ The app installs on a phone home screen (PWA).
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/schedule-board.png" alt="The manager's schedule board: a week of shifts with coverage badges and a Generate button"></td>
-    <td width="50%"><img src="docs/media/team.png" alt="The Team screen: everyone with role, rate and status, and an Add person button"></td>
+    <td width="50%"><img src="design/media/schedule-board.png" alt="The manager's schedule board: a week of shifts with coverage badges and a Generate button"></td>
+    <td width="50%"><img src="design/media/team.png" alt="The Team screen: everyone with role, rate and status, and an Add person button"></td>
   </tr>
   <tr>
     <td><b>Schedule board (manager).</b> Opens on the current week with next week one click away; a week of shifts with coverage badges, and Generate fills an empty week with the solver.</td>
     <td><b>Team (manager).</b> Add people, deactivate and reactivate them. The signed-in manager has no button on their own row.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/media/availability.png" alt="The employee's availability form: each shift offers Available, Preferred and Unavailable"></td>
-    <td width="50%"><img src="docs/media/assistant.png" alt="The assistant answering why an employee's pay is lower than last month, from their own pay data"></td>
+    <td width="50%"><img src="design/media/availability.png" alt="The employee's availability form: each shift offers Available, Preferred and Unavailable"></td>
+    <td width="50%"><img src="design/media/assistant.png" alt="The assistant answering why an employee's pay is lower than last month, from their own pay data"></td>
   </tr>
   <tr>
     <td><b>Availability (employee).</b> Each shift is available, preferred or unavailable; no answer counts as available.</td>

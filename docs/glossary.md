@@ -105,7 +105,7 @@ mapping code and one vocabulary for people and agents.
 
 | Term | Meaning | Code · DB · API |
 |---|---|---|
-| **Design system** | the written visual rules (colors, type, spacing, radius, component do's and don'ts) the Mantine theme implements | `docs/design-system.md` · `client/src/theme.ts` |
+| **Design system** | the written visual rules (colors, type, spacing, radius, component do's and don'ts) the Mantine theme implements | `design/design-system.md` · `client/src/theme.ts` |
 | **Style preview** | a development-only page that shows every token and component state of the design system | `/design` · `features/design/StylePreview.tsx` |
 | **Schedule board** | the manager's week: shifts by day, coverage, generate, edit, publish; opens on the current week, "Next week" is one click, and `?week=<Sunday>` opens another week | `/manager/schedule` · `/manager/schedule?week=YYYY-MM-DD` · `features/manager/ScheduleBoard.tsx` |
 | **Coverage badge** | "assigned / required" on a shift: green when full, red while short | `CoverageBadge` |
