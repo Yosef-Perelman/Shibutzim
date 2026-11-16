@@ -8,7 +8,7 @@ One rules table decides, per agent, which paths it may write:
 | main session, any other  | everything except `server/` and `client/src/` (docs, plans,        |
 | agent type               | `.claude/`, README, CI, `client/` config files stay editable)     |
 | `backend`                | `server/` and `docs/`                                             |
-| `frontend`               | `client/` and `docs/`                                             |
+| `frontend`               | `client/`, `docs/` and `design/`                                  |
 | `qa`                     | `server/tests/`, `server/evals/`, client `*.test/*.spec` files    |
 
 Edit/Write/MultiEdit/NotebookEdit are checked by path. A Bash command is parsed (regex and `shlex`, not a real
@@ -106,7 +106,7 @@ def scope_allows(role: str, relative: PurePosixPath) -> bool:
     if role == "backend":
         return under(relative, "server") or under(relative, "docs")
     if role == "frontend":
-        return under(relative, "client") or under(relative, "docs")
+        return under(relative, "client") or under(relative, "docs") or under(relative, "design")
     if role == "qa":
         return (
             under(relative, "server", "tests")
