@@ -1,4 +1,4 @@
-// The tokens of docs/design-system.md as data, so the style preview shows what the document says.
+// The tokens of design/design-system.md as data, so the style preview shows what the document says.
 
 export interface Swatch {
   name: string;

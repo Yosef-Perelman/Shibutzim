@@ -315,7 +315,7 @@ are spaced apart, capped, never retried on a provider error, and a failing case 
 - **Display only**: the client formats what the server returns (`lib/format.ts` for money and hours, `lib/time.ts`
   for `Asia/Jerusalem` weeks and clock times) and never computes pay or checks a scheduling rule.
 - **Mantine** for layout, forms and tables; mobile-first for employee screens. Colors, type, spacing, radius and
-  component rules come from [design-system.md](design-system.md); `client/src/theme.ts` implements them.
+  component rules come from [design-system.md](../design/design-system.md); `client/src/theme.ts` implements them.
 - **Layout** of `client/src/`: `api/`, `stores/`, `features/` (one folder per screen area: `auth`, `me`, `manager`,
   `pay`, `shell`, `design`), `components/` (shared pieces such as status badges and the loading / empty / error
   views), `routes/`, `lib/`.

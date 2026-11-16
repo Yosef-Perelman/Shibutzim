@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | done |
 | **Date** | 2026-11-12 |
-| **Related docs** | [architecture.md](../docs/architecture.md) §3, §4, §8, §10, §11 · [product-definition.md](../docs/product-definition.md) §5.5, §7 · [coding-rules](../docs/rules/coding-rules.md) · [testing-rules](../docs/rules/testing-rules.md) · [git-rules](../docs/rules/git-rules.md) · [ui-rules](../docs/rules/ui-rules.md) · [design-system](../docs/design-system.md) |
+| **Related docs** | [architecture.md](../docs/architecture.md) §3, §4, §8, §10, §11 · [product-definition.md](../docs/product-definition.md) §5.5, §7 · [coding-rules](../docs/rules/coding-rules.md) · [testing-rules](../docs/rules/testing-rules.md) · [git-rules](../docs/rules/git-rules.md) · [ui-rules](../docs/rules/ui-rules.md) · [design-system](../design/design-system.md) |
 | **Roadmap** | plan 005 of 005 |
 | **Branch** | plan/005-deploy-mcp-pwa |
 
